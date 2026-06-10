@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MetalTrack  Informe</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="style.css" rel="stylesheet">
+  <style>
+    /* GANTT */
+    .gantt-wrap { overflow-x: auto; }
+    .gantt-table { border-collapse: collapse; min-width: 900px; width: 100%; }
+    .gantt-table th { background: #1a2e4a; color: white; padding: 8px 10px; font-size: .8rem; white-space: nowrap; }
+    .gantt-table td { padding: 5px 8px; vertical-align: middle; font-size: .82rem; border-bottom: 1px solid #f0f0f0; }
+    .gantt-table tr:hover td { background: #f8f9fa; }
+    .gantt-row-struct td { background: #e8eef5 !important; font-weight: 700; font-size: .85rem; color: #1a2e4a; }
+
+    /* Phase bars */
+    .phase-cell { min-width: 120px; position: relative; height: 28px; }
+    .phase-bar {
+      position: absolute; top: 4px; height: 20px; border-radius: 4px;
+      display: flex; align-items: center; padding: 0 6px;
+      font-size: .7rem; font-weight: 600; white-space: nowrap; overflow: hidden;
+      min-width: 4px;
+    }
+    .phase-bar-label { overflow: hidden; text-overflow: ellipsis; }
+
+    /* Status summary cards */
+    .stat-card { border-radius: 10px; padding: 14px 18px; color: white; text-align: center; }
+    .stat-num  { font-size: 2rem; font-weight: 800; line-height: 1; }
+    .stat-lbl  { font-size: .78rem; opacity: .9; margin-top: 3px; }
+
+    /* Timeline header dates */
+    .date-header { font-size: .68rem; color: #aaa; border-left: 1px dashed #ddd; padding: 0 4px; }
+
+    /* Table view */
+    .phase-badge {
+      display: inline-block; padding: 3px 8px; border-radius: 12px;
+      font-size: .72rem; font-weight: 600;
+    }
+
+    @media print {
+      .no-print { display: none !important; }
+      nav { display: none !important; }
+      body { background: white !important; }
+      .card { box-shadow: none !important; border: 1px solid #ddd !important; }
+      .gantt-table { font-size: .75rem; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark no-print">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="index.html">MetalTrack</a>
+    <div class="navbar-nav ms-auto flex-row gap-3">
+      <a class="nav-link" href="index.html">Dashboard</a>
+      <a class="nav-link" href="admin.html">Administrar</a>
+      <a class="nav-link" href="labels.html">Etiquetas</a>
+      <a class="nav-link active" href="report.html">Informes</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid px-4 py-4">
+
+  <!-- Selector -->
+  <div class="card mb-4 no-print">
+    <div class="card-body py-3">
+      <div class="row g-3 align-items-center">
+        <div class="col-auto"><label class="fw-semibold mb-0">Proyecto:</label></div>
+        <div class="col-md-4">
+          <select id="project-select" class="form-select" onchange="loadReport()">
+            <option value=""> Seleccionar proyecto </option>
+          </select>
+        </div>
+        <div class="col-auto ms-auto d-flex gap-2">
+          <button class="btn btn-outline-secondary" onclick="toggleView()">Cambiar vista</button>
+          <button class="btn btn-primary" onclick="window.print()">Imprimir</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="empty-state" class="text-center py-5">
+    <div style="font-size:3rem"></div>
+    <p class="text-muted mt-3">Selecciona un proyecto para ver el informe</p>
+  </div>
+
+  <div id="report-content" style="display:none">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+      <div>
+        <h4 class="mb-0 fw-bold" id="rpt-title"></h4>
+        <div class="text-muted small" id="rpt-meta"></div>
+      </div>
+      <div class="text-muted small text-end" id="rpt-date"></div>
+    </div>
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4" id="stats-row"></div>
+
+    <!-- VIEW: TABLE -->
+    <div id="view-table">
+      <div class="card mb-4" id="rpt-structures-container"></div>
+    </div>
+
+    <!-- VIEW: GANTT -->
+    <div id="view-gantt" style="display:none">
+      <div class="card">
+        <div class="card-header fw-semibold">Cronograma por Componente</div>
+        <div class="card-body p-0">
+          <div class="gantt-wrap">
+            <table class="gantt-table" id="gantt-table">
+              <thead><tr id="gantt-header"></tr></thead>
+              <tbody id="gantt-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+let STATUS_CONFIG = {};
+let currentView = 'table';
+let reportData = null;
+
+const PHASE_KEYS  = ['assembly', 'welding', 'galvanizing', 'final'];
+const PHASE_NAMES = { assembly:'Armado', welding:'Soldadura', galvanizing:'Galvanizado', final:'Insp. Final' };
+const PHASE_COLORS = {
+  assembly:    { completed:'#0d6efd', in_progress:'#7db8f7', rejected:'#f1a7ab', pending:'#e9ecef' },
+  welding:     { completed:'#fd7e14', in_progress:'#ffc17a', rejected:'#f1a7ab', pending:'#e9ecef' },
+  galvanizing: { completed:'#6f42c1', in_progress:'#b89fe8', rejected:'#f1a7ab', pending:'#e9ecef' },
+  final:       { completed:'#198754', in_progress:'#6dcfa0', rejected:'#f1a7ab', pending:'#e9ecef' },
+};
+
+function fmtDuration(ms) {
+  if (!ms || ms < 0) return '';
+  const m = Math.floor(ms / 60000);
+  const d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), min = m % 60;
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${min}m`;
+  return `${min}m`;
+}
+function fmtDate(ts) {
+  if (!ts) return '';
+  return new Date(ts).toLocaleDateString('es-DO', { day:'2-digit', month:'short', year:'numeric' });
+}
+function fmtDateTime(ts) {
+  if (!ts) return '';
+  return new Date(ts).toLocaleString('es-DO', { dateStyle:'short', timeStyle:'short' });
+}
+function elapsedSince(ts) {
+  if (!ts) return '';
+  return fmtDuration(Date.now() - new Date(ts));
+}
+
+async function init() {
+  const info = await fetch('/api/info').then(r=>r.json());
+  STATUS_CONFIG = info.STATUS_CONFIG;
+  const projects = await fetch('/api/projects').then(r=>r.json());
+  const sel = document.getElementById('project-select');
+  sel.innerHTML = '<option value=""> Seleccionar proyecto </option>' +
+    projects.map(p=>`<option value="${p.id}">${p.name}${p.client?'  '+p.client:''}</option>`).join('');
+
+  const params = new URLSearchParams(location.search);
+  const pid = params.get('project_id');
+  if (pid) { sel.value = pid; loadReport(); }
+}
+
+async function loadReport() {
+  const pid = document.getElementById('project-select').value;
+  if (!pid) { document.getElementById('report-content').style.display='none'; document.getElementById('empty-state').style.display='block'; return; }
+
+  const data = await fetch(`/api/report/project/${pid}`).then(r=>r.json());
+  reportData = data;
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('report-content').style.display = 'block';
+
+  renderHeader(data);
+  renderStats(data);
+  renderTable(data);
+  renderGantt(data);
+}
+
+function renderHeader(data) {
+  document.getElementById('rpt-title').textContent = data.project.name;
+  const total = Object.values(data.statusCounts).reduce((a,b)=>a+b,0);
+  const done  = data.statusCounts['completed'] || 0;
+  const pct   = total ? Math.round(done/total*100) : 0;
+  document.getElementById('rpt-meta').innerHTML =
+    `${data.project.client ? 'Cliente: <strong>'+data.project.client+'</strong> &nbsp;|&nbsp; ' : ''}` +
+    `${data.structures.length} estructuras &nbsp;|&nbsp; ${total} componentes &nbsp;|&nbsp; <strong>${pct}% completado</strong>`;
+  document.getElementById('rpt-date').textContent = 'Generado: ' + new Date().toLocaleString('es-DO');
+}
+
+function renderStats(data) {
+  const STATUS_GROUPS = [
+    { label:'Pendientes',       statuses:['pending'],                                  color:'#6c757d' },
+    { label:'En Armado',        statuses:['assembly_in_progress','assembly_rejected'],  color:'#0d6efd' },
+    { label:'En Soldadura',     statuses:['assembly_approved','welding_in_progress','welding_rejected'], color:'#fd7e14' },
+    { label:'En Galvanizado',   statuses:['welding_approved','galvanizing'],            color:'#6f42c1' },
+    { label:'Insp. Final',      statuses:['galvanized','final_rejected'],               color:'#0dcaf0' },
+    { label:'Completados',      statuses:['completed'],                                color:'#198754' },
+  ];
+
+  document.getElementById('stats-row').innerHTML = STATUS_GROUPS.map(g => {
+    const count = g.statuses.reduce((a,s)=>a+(data.statusCounts[s]||0),0);
+    return `<div class="col-6 col-md-4 col-xl-2">
+      <div class="stat-card" style="background:${g.color}">
+        <div class="stat-num">${count}</div>
+        <div class="stat-lbl">${g.label}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderTable(data) {
+  const container = document.getElementById('rpt-structures-container');
+  let html = '';
+
+  for (const s of data.structures) {
+    const done = s.components.filter(c=>c.status==='completed').length;
+    const total = s.components.length;
+    const pct = total ? Math.round(done/total*100) : 0;
+
+    html += `
+      <div class="card-header d-flex justify-content-between align-items-center" style="background:#e8eef5">
+        <span class="fw-bold text-primary">${s.name}</span>
+        <span class="text-muted small">${done}/${total} completados &nbsp;
+          <div class="progress d-inline-flex" style="width:80px;height:8px;vertical-align:middle">
+            <div class="progress-bar bg-success" style="width:${pct}%"></div>
+          </div>
+          &nbsp;${pct}%
+        </span>
+      </div>
+      <div class="table-responsive">
+      <table class="table table-hover table-sm mb-0">
+        <thead class="table-light">
+          <tr>
+            <th style="min-width:130px">Componente</th>
+            <th>Armado</th>
+            <th>Soldadura</th>
+            <th>Galvanizado</th>
+            <th>Insp. Final</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+    for (const c of s.components) {
+      const cfg = STATUS_CONFIG[c.status] || {};
+      html += `<tr>
+        <td class="fw-semibold">${c.name}${c.description?'<br><span class="text-muted fw-normal" style="font-size:.75rem">'+c.description+'</span>':''}</td>`;
+
+      for (const phKey of PHASE_KEYS) {
+        const ph = c.timeline?.find(p=>p.key===phKey);
+        if (!ph || ph.status==='pending') {
+          html += `<td class="text-muted text-center" style="font-size:.75rem"></td>`;
+        } else {
+          const colors = PHASE_COLORS[phKey];
+          const bg = colors[ph.status] || colors.pending;
+          const textColor = ph.status==='pending' ? '#aaa' : '#fff';
+          const inProg = ph.status==='in_progress' || ph.status==='rejected';
+          const dur = inProg ? `<span style="color:#fd7e14"> ${elapsedSince(ph.started_at)}</span>` : fmtDuration(ph.duration_ms);
+          const attempts = ph.attempts > 1 ? `<span class="text-danger"> (${ph.attempts}x)</span>` : '';
+          html += `<td>
+            <div style="font-size:.75rem">
+              <div><strong>${fmtDate(ph.started_at)}</strong>${attempts}</div>
+              ${ph.completed_at ? `<div class="text-muted">Fin: ${fmtDate(ph.completed_at)}</div>` : ''}
+              <div>${dur}</div>
+              ${ph.worker ? `<div class="text-muted" style="font-size:.7rem">${ph.worker}</div>` : ''}
+              ${ph.qc_worker ? `<div class="text-muted" style="font-size:.7rem">${ph.qc_worker}</div>` : ''}
+            </div>
+          </td>`;
+        }
+      }
+
+      html += `<td><span class="phase-badge" style="background:${cfg.bg||'#eee'};color:${cfg.color||'#333'}">${cfg.icon||''} ${cfg.label||c.status}</span></td>`;
+      html += `</tr>`;
+    }
+
+    html += `</tbody></table></div>`;
+  }
+
+  container.innerHTML = html || '<div class="p-4 text-muted text-center">Sin datos</div>';
+}
+
+function renderGantt(data) {
+  if (!data.minDate || !data.maxDate) return;
+
+  const start  = new Date(data.minDate);
+  const end    = new Date(data.maxDate);
+  const totalMs = end - start || 1;
+
+  // Build date header columns (one per day or week)
+  const dayMs = 86400000;
+  const days  = Math.ceil(totalMs / dayMs);
+  const useWeeks = days > 30;
+  const colMs = useWeeks ? dayMs * 7 : dayMs;
+  const cols  = Math.ceil(totalMs / colMs) + 1;
+
+  // Header
+  let headerHtml = `<th style="min-width:130px;position:sticky;left:0;z-index:2;background:#1a2e4a">Componente</th>
+    <th style="min-width:90px;position:sticky;left:130px;z-index:2;background:#1a2e4a">Estructura</th>
+    <th style="min-width:80px;background:#1a2e4a">Estado</th>`;
+
+  const colWidth = Math.max(40, Math.min(80, Math.floor(900 / cols)));
+  for (let i = 0; i < cols; i++) {
+    const d = new Date(start.getTime() + i * colMs);
+    const label = useWeeks
+      ? `${d.getDate()}/${d.getMonth()+1}`
+      : d.getDate() === 1 || i === 0
+        ? d.toLocaleDateString('es-DO',{day:'2-digit',month:'short'})
+        : `${d.getDate()}`;
+    headerHtml += `<th class="date-header" style="width:${colWidth}px;min-width:${colWidth}px;text-align:center">${label}</th>`;
+  }
+  document.getElementById('gantt-header').innerHTML = headerHtml;
+
+  // Rows
+  const PHASE_BAR_COLORS = {
+    assembly:    { completed:'#0d6efd88', in_progress:'#0d6efd', rejected:'#dc3545' },
+    welding:     { completed:'#fd7e1488', in_progress:'#fd7e14', rejected:'#dc3545' },
+    galvanizing: { completed:'#6f42c188', in_progress:'#6f42c1', rejected:'#dc3545' },
+    final:       { completed:'#19875488', in_progress:'#198754', rejected:'#dc3545' },
+  };
+
+  let bodyHtml = '';
+  for (const s of data.structures) {
+    for (const c of s.components) {
+      const cfg = STATUS_CONFIG[c.status] || {};
+
+      let phaseCells = '';
+      // Collect all bars per phase into a single row of cols
+      const bars = [];
+      for (const ph of (c.timeline || [])) {
+        if (!ph.started_at) continue;
+        const phStart = new Date(ph.started_at);
+        const phEnd   = ph.completed_at ? new Date(ph.completed_at) : new Date();
+        const leftPct  = ((phStart - start) / totalMs) * 100;
+        const widthPct = Math.max(0.5, ((phEnd - phStart) / totalMs) * 100);
+        const color = PHASE_BAR_COLORS[ph.key]?.[ph.status] || '#aaa';
+        bars.push({ leftPct, widthPct, color, name: PHASE_NAMES[ph.key], status: ph.status });
+      }
+
+      // Build gantt row: one cell spanning all cols with absolutely positioned bars
+      const totalColWidth = colWidth * cols;
+      let barsHtml = bars.map(b =>
+        `<div class="phase-bar" style="left:${b.leftPct}%;width:${b.widthPct}%;background:${b.color};color:white" title="${b.name}">
+          <span class="phase-bar-label">${b.name}</span>
+        </div>`
+      ).join('');
+
+      phaseCells = `<td colspan="${cols}" style="padding:0;position:relative;height:30px">
+        <div style="position:relative;width:100%;height:30px">${barsHtml}</div>
+      </td>`;
+
+      bodyHtml += `<tr>
+        <td class="fw-semibold" style="position:sticky;left:0;background:white;z-index:1;white-space:nowrap">${c.name}</td>
+        <td style="position:sticky;left:130px;background:white;z-index:1;white-space:nowrap;color:#888;font-size:.78rem">${s.name}</td>
+        <td><span style="font-size:.7rem;padding:2px 6px;border-radius:10px;background:${cfg.bg||'#eee'};color:${cfg.color||'#333'}">${cfg.icon||''} ${cfg.label||c.status}</span></td>
+        ${phaseCells}
+      </tr>`;
+    }
+  }
+
+  document.getElementById('gantt-body').innerHTML = bodyHtml || '<tr><td colspan="20" class="text-center text-muted p-4">Sin datos de fechas</td></tr>';
+}
+
+function toggleView() {
+  if (currentView === 'table') {
+    currentView = 'gantt';
+    document.getElementById('view-table').style.display = 'none';
+    document.getElementById('view-gantt').style.display = 'block';
+  } else {
+    currentView = 'table';
+    document.getElementById('view-table').style.display = 'block';
+    document.getElementById('view-gantt').style.display = 'none';
+  }
+}
+
+init();
+</script>
+</body>
+</html>

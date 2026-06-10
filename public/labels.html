@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MetalTrack - Etiquetas</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="style.css" rel="stylesheet">
+  <style>
+    .label-grid { display: flex; flex-wrap: wrap; gap: 10px; padding: 10px; }
+    .label-item {
+      border: 2px solid #222;
+      border-radius: 4px;
+      width: 4in;
+      height: 2in;
+      background: white;
+      font-family: Arial, sans-serif;
+      position: relative;
+      cursor: default;
+      overflow: hidden;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: row;
+      align-items: stretch;
+    }
+
+    /* Left: text */
+    .label-text {
+      flex: 1;
+      min-width: 0;
+      padding: 10px 8px 10px 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .label-top { display: flex; flex-direction: column; gap: 3px; }
+
+    .lbl-project {
+      font-size: 11pt;
+      font-weight: 900;
+      color: #1a2e4a;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      line-height: 1.15;
+      word-break: break-word;
+    }
+    .lbl-structure {
+      font-size: 9pt;
+      font-weight: 600;
+      color: #444;
+      line-height: 1.2;
+      word-break: break-word;
+    }
+
+    .lbl-divider { border: none; border-top: 1.5px solid #1a2e4a; margin: 5px 0; }
+
+    .label-bottom { display: flex; flex-direction: column; gap: 3px; }
+
+    .lbl-component {
+      font-size: 10pt;
+      font-weight: 700;
+      color: #1a2e4a;
+      line-height: 1.2;
+      word-break: break-word;
+    }
+    .lbl-desc {
+      font-size: 7.5pt;
+      color: #666;
+      line-height: 1.2;
+    }
+    .lbl-id {
+      font-size: 7pt;
+      color: #999;
+      font-family: monospace;
+    }
+
+    /* Right: QR */
+    .label-qr-side {
+      width: 1.7in;
+      min-width: 1.7in;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-left: 1.5px solid #1a2e4a;
+      padding: 6px;
+      gap: 4px;
+    }
+    .label-qr-side img { display: block; width: 1.45in; height: 1.45in; }
+    .lbl-scan-text { font-size: 6.5pt; color: #888; text-align: center; font-family: Arial, sans-serif; }
+
+    .label-check { position: absolute; top: 4px; right: 4px; z-index: 10; }
+    .label-item.selected { border-color: #0d6efd; box-shadow: 0 0 0 2px #0d6efd44; }
+
+    @media print {
+      nav, .no-print { display: none !important; }
+      body { background: white !important; margin: 0; padding: 0; }
+      @page { size: 4in 2in landscape; margin: 0; }
+      .label-grid { display: flex; flex-wrap: wrap; gap: 0; padding: 0; }
+      .label-item {
+        break-after: page;
+        page-break-after: always;
+        border: none;
+        border-radius: 0;
+        width: 4in;
+        height: 2in;
+      }
+      .label-item:last-child { break-after: auto; page-break-after: auto; }
+      .label-check { display: none !important; }
+      .label-item.selected { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark no-print">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="index.html">MetalTrack</a>
+    <div class="navbar-nav ms-auto flex-row gap-3">
+      <a class="nav-link" href="index.html">Dashboard</a>
+      <a class="nav-link" href="admin.html">Administrar</a>
+      <a class="nav-link active" href="labels.html">Etiquetas</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid px-4 py-4 no-print">
+  <div class="row g-3 mb-4">
+    <!-- Filters -->
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body">
+          <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+              <label class="form-label fw-semibold">Proyecto</label>
+              <select id="filter-project" class="form-select" onchange="onProjectChange()">
+                <option value=""> Todos </option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-semibold">Estructura</label>
+              <select id="filter-structure" class="form-select" onchange="loadLabelComponents()">
+                <option value=""> Todas </option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-semibold">Tamaño QR</label>
+              <select id="qr-size" class="form-select" onchange="regenerateQRs()">
+                <option value="200">Borrador (200px)</option>
+                <option value="300" selected>Impresión normal (300px)</option>
+                <option value="400">Alta resolución (400px)</option>
+              </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+              <button class="btn btn-outline-secondary flex-fill" onclick="toggleAll()">Sel. todo</button>
+              <button class="btn btn-primary flex-fill" onclick="printLabels()">Imprimir</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats bar -->
+    <div class="col-12">
+      <div class="d-flex gap-3 align-items-center">
+        <span class="text-muted small" id="comp-count">0 componentes</span>
+        <span class="text-muted small"></span>
+        <span class="text-muted small" id="selected-count">0 seleccionados</span>
+        <button class="btn btn-sm btn-link text-muted p-0" onclick="selectOnlyPending()">Seleccionar solo pendientes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Label Grid -->
+<div id="label-grid" class="label-grid"></div>
+
+<div id="empty-state" class="text-center py-5 no-print d-none">
+  
+  <h5 class="mt-3 text-muted">Selecciona un proyecto o estructura para ver los componentes</h5>
+</div>
+
+<div id="loading-state" class="text-center py-5 no-print">
+  <div class="spinner-border text-primary"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+let allComponents = [];
+let selectedIds = new Set();
+let qrCache = {};
+let STATUS_CONFIG = {};
+
+async function init() {
+  const info = await fetch('/api/info').then(r=>r.json());
+  STATUS_CONFIG = info.STATUS_CONFIG;
+
+  const projects = await fetch('/api/projects').then(r=>r.json());
+  const sel = document.getElementById('filter-project');
+  sel.innerHTML = '<option value=""> Todos </option>' +
+    projects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+
+  // Pre-select from URL param
+  const params = new URLSearchParams(window.location.search);
+  const pid = params.get('project_id');
+  if (pid) {
+    sel.value = pid;
+    await onProjectChange();
+  } else {
+    await loadLabelComponents();
+  }
+}
+
+async function onProjectChange() {
+  const pid = document.getElementById('filter-project').value;
+  const sel = document.getElementById('filter-structure');
+  if (pid) {
+    const structs = await fetch(`/api/structures?project_id=${pid}`).then(r=>r.json());
+    sel.innerHTML = '<option value=""> Todas </option>' +
+      structs.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  } else {
+    sel.innerHTML = '<option value=""> Todas </option>';
+  }
+  await loadLabelComponents();
+}
+
+async function loadLabelComponents() {
+  document.getElementById('loading-state').classList.remove('d-none');
+  document.getElementById('label-grid').innerHTML = '';
+  document.getElementById('empty-state').classList.add('d-none');
+  qrCache = {};
+  selectedIds = new Set();
+
+  const pid = document.getElementById('filter-project').value;
+  const sid = document.getElementById('filter-structure').value;
+  const params = sid ? `?structure_id=${sid}` : pid ? `?project_id=${pid}` : '';
+
+  allComponents = await fetch('/api/components' + params).then(r=>r.json());
+  document.getElementById('loading-state').classList.add('d-none');
+
+  if (!allComponents.length) {
+    document.getElementById('empty-state').classList.remove('d-none');
+    updateCounts();
+    return;
+  }
+
+  // Select all by default
+  allComponents.forEach(c => selectedIds.add(c.id));
+
+  await renderLabels();
+  updateCounts();
+}
+
+async function renderLabels() {
+  const size = parseInt(document.getElementById('qr-size').value);
+  const grid = document.getElementById('label-grid');
+  grid.innerHTML = '';
+
+  for (const c of allComponents) {
+    const qrDataUrl = await getQR(c.id, size);
+    const cfg = STATUS_CONFIG[c.status] || {};
+    const isSelected = selectedIds.has(c.id);
+
+    const div = document.createElement('div');
+    div.className = 'label-item' + (isSelected ? ' selected' : '');
+    div.dataset.id = c.id;
+    div.innerHTML = `
+      <input type="checkbox" class="form-check-input label-check no-print"
+        ${isSelected ? 'checked' : ''} onchange="toggleLabel(${c.id}, this.checked)">
+      <div class="label-text">
+        <div class="label-top">
+          <div class="lbl-project">${c.project_name}</div>
+          <div class="lbl-structure">${c.structure_name}</div>
+        </div>
+        <hr class="lbl-divider">
+        <div class="label-bottom">
+          <div class="lbl-component">${c.name}</div>
+          ${c.description ? `<div class="lbl-desc">${c.description}</div>` : ''}
+          <div class="lbl-id">ID-${c.id} &nbsp;|&nbsp; ${cfg.icon||''} ${cfg.label||c.status}</div>
+        </div>
+      </div>
+      <div class="label-qr-side">
+        <img src="${qrDataUrl}" alt="QR">
+        <div class="lbl-scan-text">Escanear para<br>registrar avance</div>
+      </div>
+    `;
+    div.addEventListener('click', (e) => {
+      if (e.target.tagName === 'INPUT') return;
+      const cb = div.querySelector('input[type=checkbox]');
+      cb.checked = !cb.checked;
+      toggleLabel(c.id, cb.checked);
+    });
+    grid.appendChild(div);
+  }
+}
+
+async function getQR(componentId, size) {
+  const key = `${componentId}-${size}`;
+  if (qrCache[key]) return qrCache[key];
+  const data = await fetch(`/api/components/${componentId}/qr?size=${size}`).then(r=>r.json());
+  qrCache[key] = data.dataUrl;
+  return data.dataUrl;
+}
+
+function toggleLabel(id, checked) {
+  if (checked) selectedIds.add(id);
+  else selectedIds.delete(id);
+
+  const div = document.querySelector(`.label-item[data-id="${id}"]`);
+  if (div) div.classList.toggle('selected', checked);
+  updateCounts();
+}
+
+function toggleAll() {
+  const allSelected = selectedIds.size === allComponents.length;
+  if (allSelected) {
+    selectedIds.clear();
+    document.querySelectorAll('.label-item input[type=checkbox]').forEach(cb => cb.checked = false);
+    document.querySelectorAll('.label-item').forEach(d => d.classList.remove('selected'));
+  } else {
+    allComponents.forEach(c => selectedIds.add(c.id));
+    document.querySelectorAll('.label-item input[type=checkbox]').forEach(cb => cb.checked = true);
+    document.querySelectorAll('.label-item').forEach(d => d.classList.add('selected'));
+  }
+  updateCounts();
+}
+
+function selectOnlyPending() {
+  selectedIds.clear();
+  allComponents.forEach(c => {
+    if (c.status === 'pending') selectedIds.add(c.id);
+  });
+  document.querySelectorAll('.label-item').forEach(d => {
+    const id = parseInt(d.dataset.id);
+    const selected = selectedIds.has(id);
+    d.classList.toggle('selected', selected);
+    const cb = d.querySelector('input[type=checkbox]');
+    if (cb) cb.checked = selected;
+  });
+  updateCounts();
+}
+
+function updateCounts() {
+  document.getElementById('comp-count').textContent = `${allComponents.length} componentes`;
+  document.getElementById('selected-count').textContent = `${selectedIds.size} seleccionados`;
+}
+
+async function regenerateQRs() {
+  qrCache = {};
+  await renderLabels();
+}
+
+function printLabels() {
+  // Hide non-selected labels for print
+  document.querySelectorAll('.label-item').forEach(d => {
+    const id = parseInt(d.dataset.id);
+    d.style.display = selectedIds.has(id) ? '' : 'none';
+  });
+  window.print();
+  // Restore
+  setTimeout(() => {
+    document.querySelectorAll('.label-item').forEach(d => d.style.display = '');
+  }, 500);
+}
+
+init();
+</script>
+</body>
+</html>
+

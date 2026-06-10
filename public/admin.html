@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MetalTrack - Administrar</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="style.css" rel="stylesheet">
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="index.html">MetalTrack</a>
+    <div class="navbar-nav ms-auto flex-row gap-3">
+      <a class="nav-link" href="index.html">Dashboard</a>
+      <a class="nav-link active" href="admin.html">Administrar</a>
+      <a class="nav-link" href="labels.html">Etiquetas</a><a class="nav-link" href="report.html">Informes</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid px-4 py-4">
+  <ul class="nav nav-tabs mb-4" id="adminTabs">
+    <li class="nav-item"><button class="nav-link active" data-tab="projects">Proyectos</button></li>
+    <li class="nav-item"><button class="nav-link" data-tab="structures">Estructuras</button></li>
+    <li class="nav-item"><button class="nav-link" data-tab="components">Componentes</button></li>
+    <li class="nav-item"><button class="nav-link" data-tab="workers">Trabajadores</button></li>
+  </ul>
+
+  <!-- PROJECTS TAB -->
+  <div id="tab-projects" class="tab-content-section">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Proyectos</span>
+        <button class="btn btn-sm btn-primary" onclick="openProjectModal()">Editar</button>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+          <thead class="table-light"><tr>
+            <th>Nombre</th><th>Cliente</th><th>Estructuras</th><th>Componentes</th><th>Avance</th><th>Creado</th><th></th>
+          </tr></thead>
+          <tbody id="projects-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- STRUCTURES TAB -->
+  <div id="tab-structures" class="tab-content-section d-none">
+    <div class="card mb-3">
+      <div class="card-body py-2">
+        <div class="row g-2 align-items-center">
+          <div class="col-auto"><label class="fw-semibold mb-0">Proyecto:</label></div>
+          <div class="col-md-4"><select id="struct-project-filter" class="form-select form-select-sm" onchange="loadStructures()">
+            <option value=""> Todos </option>
+          </select></div>
+          <div class="col-auto ms-auto">
+            <button class="btn btn-sm btn-primary" onclick="openStructureModal()">Editar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+          <thead class="table-light"><tr>
+            <th>Proyecto</th><th>Estructura</th><th>Descripción</th><th>Componentes</th><th>Avance</th><th></th>
+          </tr></thead>
+          <tbody id="structures-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPONENTS TAB -->
+  <div id="tab-components" class="tab-content-section d-none">
+    <div class="card mb-3">
+      <div class="card-body py-2">
+        <div class="row g-2 align-items-center">
+          <div class="col-auto"><label class="fw-semibold mb-0">Proyecto:</label></div>
+          <div class="col-md-3"><select id="comp-project-filter" class="form-select form-select-sm" onchange="onCompProjectChange()">
+            <option value=""> Todos </option>
+          </select></div>
+          <div class="col-auto"><label class="fw-semibold mb-0">Estructura:</label></div>
+          <div class="col-md-3"><select id="comp-structure-filter" class="form-select form-select-sm" onchange="loadComponents()">
+            <option value=""> Todas </option>
+          </select></div>
+          <div class="col-auto ms-auto">
+            <button class="btn btn-sm btn-primary" onclick="openComponentModal()">+ Agregar Componente(s)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+          <thead class="table-light"><tr>
+            <th>Proyecto</th><th>Estructura</th><th>Componente</th><th>Descripción</th><th>Estado</th><th>Creado</th><th></th>
+          </tr></thead>
+          <tbody id="components-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- WORKERS TAB -->
+  <div id="tab-workers" class="tab-content-section d-none">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Trabajadores / QC</span>
+        <button class="btn btn-sm btn-primary" onclick="openWorkerModal()">+ Agregar Trabajador</button>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+          <thead class="table-light"><tr><th>Nombre</th><th>Rol</th><th></th></tr></thead>
+          <tbody id="workers-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALS -->
+
+<!-- Project Modal -->
+<div class="modal fade" id="projectModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="projectModalTitle">Proyecto</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <input type="hidden" id="proj-id">
+        <div class="mb-3"><label class="form-label fw-semibold">Nombre *</label>
+          <input type="text" id="proj-name" class="form-control" placeholder="Ej: Toll Site 1"></div>
+        <div class="mb-3"><label class="form-label fw-semibold">Cliente</label>
+          <input type="text" id="proj-client" class="form-control" placeholder="Nombre del cliente"></div>
+        <div class="mb-3"><label class="form-label fw-semibold">Descripción</label>
+          <textarea id="proj-desc" class="form-control" rows="2"></textarea></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveProject()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Structure Modal -->
+<div class="modal fade" id="structureModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="structureModalTitle">Estructura</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <input type="hidden" id="struct-id">
+        <div class="mb-3"><label class="form-label fw-semibold">Proyecto *</label>
+          <select id="struct-project" class="form-select"></select></div>
+        <div class="mb-3"><label class="form-label fw-semibold">Nombre *</label>
+          <input type="text" id="struct-name" class="form-control" placeholder="Ej: Truss Principal"></div>
+        <div class="mb-3"><label class="form-label fw-semibold">Descripción</label>
+          <textarea id="struct-desc" class="form-control" rows="2"></textarea></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveStructure()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Component Modal -->
+<div class="modal fade" id="componentModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">Agregar Componentes</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <input type="hidden" id="comp-id">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Proyecto *</label>
+            <select id="comp-project" class="form-select" onchange="loadCompStructures()"></select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Estructura *</label>
+            <select id="comp-structure" class="form-select"></select>
+          </div>
+        </div>
+        <div id="comp-single-fields" class="mt-3">
+          <div class="mb-3"><label class="form-label fw-semibold">Nombre del Componente *</label>
+            <input type="text" id="comp-name" class="form-control" placeholder="Ej: Upright Derecho"></div>
+          <div class="mb-3"><label class="form-label fw-semibold">Descripción</label>
+            <input type="text" id="comp-desc" class="form-control"></div>
+        </div>
+        <hr>
+        <div class="mb-2">
+          <label class="form-label fw-semibold">O agregar múltiples (uno por línea)</label>
+          <textarea id="comp-bulk" class="form-control font-monospace" rows="5"
+            placeholder="Upright Izquierdo&#10;Upright Derecho&#10;Truss A&#10;Truss B"></textarea>
+          <div class="form-text">Si usas este campo, se ignorará el nombre individual de arriba.</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveComponent()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Worker Modal -->
+<div class="modal fade" id="workerModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">Trabajador</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <input type="hidden" id="worker-id">
+        <div class="mb-3"><label class="form-label fw-semibold">Nombre *</label>
+          <input type="text" id="worker-name" class="form-control"></div>
+        <div class="mb-3"><label class="form-label fw-semibold">Rol</label>
+          <select id="worker-role" class="form-select">
+            <option value="worker">Armador / Soldador</option>
+            <option value="qc">Control de Calidad (QC)</option>
+            <option value="supervisor">Supervisor</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveWorker()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-body text-center py-4">
+        <div class="fs-1">ï</div>
+        <p id="confirmMsg" class="mb-0"></p>
+      </div>
+      <div class="modal-footer justify-content-center">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-danger" id="confirmBtn">Eliminar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+let STATUS_CONFIG = {};
+let projects = [];
+
+const ROLE_LABELS = { worker: 'Armador/Soldador', qc: 'Control Calidad (QC)', supervisor: 'Supervisor' };
+
+//  TABS 
+document.querySelectorAll('#adminTabs .nav-link').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#adminTabs .nav-link').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content-section').forEach(s => s.classList.add('d-none'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.remove('d-none');
+    if (btn.dataset.tab === 'structures') loadStructures();
+    if (btn.dataset.tab === 'components') loadComponents();
+    if (btn.dataset.tab === 'workers') loadWorkers();
+  });
+});
+
+async function init() {
+  const info = await fetch('/api/info').then(r=>r.json());
+  STATUS_CONFIG = info.STATUS_CONFIG;
+  await loadProjects();
+}
+
+//  PROJECTS 
+async function loadProjects() {
+  projects = await fetch('/api/projects').then(r=>r.json());
+  const tbody = document.getElementById('projects-tbody');
+  tbody.innerHTML = projects.map(p => {
+    const pct = p.component_count ? Math.round(p.done_count/p.component_count*100) : 0;
+    return `<tr>
+      <td class="fw-semibold">${p.name}</td>
+      <td>${p.client||''}</td>
+      <td class="text-center">${p.structure_count}</td>
+      <td class="text-center">${p.component_count}</td>
+      <td style="min-width:100px">
+        <div class="d-flex align-items-center gap-2">
+          <div class="progress flex-fill" style="height:6px">
+            <div class="progress-bar bg-success" style="width:${pct}%"></div>
+          </div>
+          <small>${pct}%</small>
+        </div>
+      </td>
+      <td class="text-muted small">${p.created_at?.slice(0,10)||''}</td>
+      <td class="action-btns">
+        <button class="btn btn-sm btn-outline-secondary me-1" onclick="openProjectModal(${p.id})">Editar</button>
+        <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete('proyecto', () => deleteProject(${p.id}))">Eliminar</button>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" class="text-center text-muted py-4">No hay proyectos</td></tr>';
+
+  // populate selects
+  const opts = '<option value=""> Seleccionar </option>' + projects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  ['struct-project-filter','struct-project','comp-project-filter','comp-project'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = (id.includes('filter') ? '<option value=""> Todos </option>' : '<option value=""> Seleccionar </option>') +
+      projects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  });
+}
+
+function openProjectModal(id) {
+  const p = id ? projects.find(x=>x.id===id) : null;
+  document.getElementById('projectModalTitle').textContent = p ? 'Editar Proyecto' : 'Nuevo Proyecto';
+  document.getElementById('proj-id').value = p?.id||'';
+  document.getElementById('proj-name').value = p?.name||'';
+  document.getElementById('proj-client').value = p?.client||'';
+  document.getElementById('proj-desc').value = p?.description||'';
+  new bootstrap.Modal(document.getElementById('projectModal')).show();
+}
+
+async function saveProject() {
+  const id = document.getElementById('proj-id').value;
+  const body = {
+    name: document.getElementById('proj-name').value.trim(),
+    client: document.getElementById('proj-client').value.trim(),
+    description: document.getElementById('proj-desc').value.trim(),
+  };
+  if (!body.name) return toast('Nombre requerido', 'danger');
+  const url = id ? `/api/projects/${id}` : '/api/projects';
+  const method = id ? 'PUT' : 'POST';
+  const r = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if (!r.ok) return toast((await r.json()).error, 'danger');
+  bootstrap.Modal.getInstance(document.getElementById('projectModal')).hide();
+  toast('Proyecto guardado', 'success');
+  await loadProjects();
+}
+
+async function deleteProject(id) {
+  await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+  toast('Proyecto eliminado', 'success');
+  await loadProjects();
+}
+
+//  STRUCTURES 
+async function loadStructures() {
+  const pid = document.getElementById('struct-project-filter').value;
+  const url = '/api/structures' + (pid ? `?project_id=${pid}` : '');
+  const rows = await fetch(url).then(r=>r.json());
+  document.getElementById('structures-tbody').innerHTML = rows.map(s => {
+    const pct = s.component_count ? Math.round(s.done_count/s.component_count*100) : 0;
+    return `<tr>
+      <td>${s.project_name}</td>
+      <td class="fw-semibold">${s.name}</td>
+      <td class="text-muted small">${s.description||''}</td>
+      <td class="text-center">${s.component_count}</td>
+      <td style="min-width:90px">
+        <div class="d-flex align-items-center gap-2">
+          <div class="progress flex-fill" style="height:6px">
+            <div class="progress-bar bg-success" style="width:${pct}%"></div>
+          </div>
+          <small>${pct}%</small>
+        </div>
+      </td>
+      <td class="action-btns">
+        <button class="btn btn-sm btn-outline-secondary me-1" onclick="openStructureModal(${s.id})">Editar</button>
+        <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete('estructura', () => deleteStructure(${s.id}))">Eliminar</button>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" class="text-center text-muted py-4">No hay estructuras</td></tr>';
+}
+
+async function openStructureModal(id) {
+  await loadProjects();
+  let s = null;
+  if (id) { const r = await fetch(`/api/structures/${id}`).then(r=>r.json()); s = r; }
+  document.getElementById('structureModalTitle').textContent = s ? 'Editar Estructura' : 'Nueva Estructura';
+  document.getElementById('struct-id').value = s?.id||'';
+  document.getElementById('struct-project').value = s?.project_id||'';
+  document.getElementById('struct-name').value = s?.name||'';
+  document.getElementById('struct-desc').value = s?.description||'';
+  new bootstrap.Modal(document.getElementById('structureModal')).show();
+}
+
+async function saveStructure() {
+  const id = document.getElementById('struct-id').value;
+  const body = {
+    project_id: document.getElementById('struct-project').value,
+    name: document.getElementById('struct-name').value.trim(),
+    description: document.getElementById('struct-desc').value.trim(),
+  };
+  if (!body.project_id || !body.name) return toast('Proyecto y nombre requeridos', 'danger');
+  const url = id ? `/api/structures/${id}` : '/api/structures';
+  const method = id ? 'PUT' : 'POST';
+  const r = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if (!r.ok) return toast((await r.json()).error, 'danger');
+  bootstrap.Modal.getInstance(document.getElementById('structureModal')).hide();
+  toast('Estructura guardada', 'success');
+  loadStructures();
+}
+
+async function deleteStructure(id) {
+  await fetch(`/api/structures/${id}`, { method: 'DELETE' });
+  toast('Estructura eliminada', 'success');
+  loadStructures();
+}
+
+//  COMPONENTS 
+async function onCompProjectChange() {
+  const pid = document.getElementById('comp-project-filter').value;
+  const sel = document.getElementById('comp-structure-filter');
+  if (pid) {
+    const structs = await fetch(`/api/structures?project_id=${pid}`).then(r=>r.json());
+    sel.innerHTML = '<option value=""> Todas </option>' + structs.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  } else {
+    sel.innerHTML = '<option value=""> Todas </option>';
+  }
+  loadComponents();
+}
+
+async function loadComponents() {
+  const pid = document.getElementById('comp-project-filter').value;
+  const sid = document.getElementById('comp-structure-filter').value;
+  const params = sid ? `?structure_id=${sid}` : pid ? `?project_id=${pid}` : '';
+  const rows = await fetch('/api/components' + params).then(r=>r.json());
+  document.getElementById('components-tbody').innerHTML = rows.map(c => {
+    const cfg = STATUS_CONFIG[c.status]||{};
+    return `<tr>
+      <td class="small">${c.project_name}</td>
+      <td class="small">${c.structure_name}</td>
+      <td class="fw-semibold">${c.name}</td>
+      <td class="text-muted small">${c.description||''}</td>
+      <td><span class="status-badge" style="background:${cfg.bg||'#eee'};color:${cfg.color||'#333'};font-size:.72rem">${cfg.icon||''} ${cfg.label||c.status}</span></td>
+      <td class="text-muted small">${c.created_at?.slice(0,10)||''}</td>
+      <td class="action-btns">
+        <a href="scan.html?id=${c.id}" target="_blank" class="btn btn-sm btn-outline-primary me-1" title="Ver en móvil">Ver</a>
+        <button class="btn btn-sm btn-outline-warning me-1" onclick="undoComponent(${c.id}, '${c.name.replace(/'/g,"\\'")}')" title="Deshacer último paso" ${c.status==='pending'?'disabled':''}>Deshacer</button>
+        <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete('componente', () => deleteComponent(${c.id}))">Eliminar</button>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" class="text-center text-muted py-4">No hay componentes</td></tr>';
+}
+
+async function loadCompStructures() {
+  const pid = document.getElementById('comp-project').value;
+  const sel = document.getElementById('comp-structure');
+  if (pid) {
+    const structs = await fetch(`/api/structures?project_id=${pid}`).then(r=>r.json());
+    sel.innerHTML = '<option value=""> Seleccionar </option>' + structs.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  } else {
+    sel.innerHTML = '<option value=""> Seleccionar </option>';
+  }
+}
+
+async function openComponentModal() {
+  await loadProjects();
+  document.getElementById('comp-id').value = '';
+  document.getElementById('comp-project').value = '';
+  document.getElementById('comp-structure').innerHTML = '<option value=""> Seleccionar </option>';
+  document.getElementById('comp-name').value = '';
+  document.getElementById('comp-desc').value = '';
+  document.getElementById('comp-bulk').value = '';
+  new bootstrap.Modal(document.getElementById('componentModal')).show();
+}
+
+async function saveComponent() {
+  const structure_id = document.getElementById('comp-structure').value;
+  if (!structure_id) return toast('Selecciona una estructura', 'danger');
+
+  const bulkText = document.getElementById('comp-bulk').value.trim();
+  if (bulkText) {
+    const names = bulkText.split('\n').map(n=>n.trim()).filter(Boolean);
+    const r = await fetch('/api/components/bulk', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ structure_id, names })
+    });
+    if (!r.ok) return toast((await r.json()).error, 'danger');
+    toast(`${names.length} componentes creados`, 'success');
+  } else {
+    const name = document.getElementById('comp-name').value.trim();
+    if (!name) return toast('Nombre requerido', 'danger');
+    const description = document.getElementById('comp-desc').value.trim();
+    const r = await fetch('/api/components', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ structure_id, name, description })
+    });
+    if (!r.ok) return toast((await r.json()).error, 'danger');
+    toast('Componente creado', 'success');
+  }
+  bootstrap.Modal.getInstance(document.getElementById('componentModal')).hide();
+  loadComponents();
+}
+
+async function undoComponent(id, name) {
+  if (!confirm(`?Deshacer el último paso de "${name}"?\n\nEsto regresará el componente al estado anterior.`)) return;
+  const r = await fetch(`/api/components/${id}/undo`, { method: 'POST' });
+  const data = await r.json();
+  if (!r.ok) return toast(data.error || 'Error al deshacer', 'danger');
+  toast(` Regresado a: ${data.label}`, 'warning');
+  loadComponents();
+}
+
+async function deleteComponent(id) {
+  await fetch(`/api/components/${id}`, { method: 'DELETE' });
+  toast('Componente eliminado', 'success');
+  loadComponents();
+}
+
+//  WORKERS 
+async function loadWorkers() {
+  const workers = await fetch('/api/workers').then(r=>r.json());
+  document.getElementById('workers-tbody').innerHTML = workers.map(w => `<tr>
+    <td class="fw-semibold">${w.name}</td>
+    <td><span class="badge bg-secondary">${ROLE_LABELS[w.role]||w.role}</span></td>
+    <td class="action-btns">
+      <button class="btn btn-sm btn-outline-danger" onclick="confirmDelete('trabajador', () => deleteWorker(${w.id}))">Eliminar</button>
+    </td>
+  </tr>`).join('') || '<tr><td colspan="3" class="text-center text-muted py-4">No hay trabajadores registrados</td></tr>';
+}
+
+function openWorkerModal() {
+  document.getElementById('worker-id').value = '';
+  document.getElementById('worker-name').value = '';
+  document.getElementById('worker-role').value = 'worker';
+  new bootstrap.Modal(document.getElementById('workerModal')).show();
+}
+
+async function saveWorker() {
+  const body = {
+    name: document.getElementById('worker-name').value.trim(),
+    role: document.getElementById('worker-role').value,
+  };
+  if (!body.name) return toast('Nombre requerido', 'danger');
+  const r = await fetch('/api/workers', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if (!r.ok) return toast((await r.json()).error, 'danger');
+  bootstrap.Modal.getInstance(document.getElementById('workerModal')).hide();
+  toast('Trabajador guardado', 'success');
+  loadWorkers();
+}
+
+async function deleteWorker(id) {
+  await fetch(`/api/workers/${id}`, { method: 'DELETE' });
+  toast('Trabajador eliminado', 'success');
+  loadWorkers();
+}
+
+//  CONFIRM 
+function confirmDelete(entity, fn) {
+  document.getElementById('confirmMsg').textContent = `?Eliminar este ${entity}? Esta acción no se puede deshacer.`;
+  const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+  const btn = document.getElementById('confirmBtn');
+  btn.onclick = () => { modal.hide(); fn(); };
+  modal.show();
+}
+
+//  TOAST 
+function toast(msg, type='success') {
+  const el = document.createElement('div');
+  el.className = `toast align-items-center text-bg-${type} border-0 show`;
+  el.innerHTML = `<div class="d-flex"><div class="toast-body">${msg}</div>
+    <button class="btn-close btn-close-white me-2 m-auto" onclick="this.closest('.toast').remove()"></button></div>`;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+init();
+</script>
+</body>
+</html>
+

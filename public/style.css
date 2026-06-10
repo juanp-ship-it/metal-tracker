@@ -1,0 +1,97 @@
+:root {
+  --primary: #1a2e4a;
+  --accent: #e8a020;
+  --success: #198754;
+  --danger: #dc3545;
+  --warning: #ffc107;
+  --info: #0dcaf0;
+}
+
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f2f5; }
+
+/* NAV */
+.navbar-brand { font-weight: 700; font-size: 1.3rem; letter-spacing: .5px; }
+.navbar { background: var(--primary) !important; }
+.nav-link { color: rgba(255,255,255,.8) !important; }
+.nav-link:hover, .nav-link.active { color: var(--accent) !important; }
+
+/* CARDS */
+.card { border: none; box-shadow: 0 2px 8px rgba(0,0,0,.08); border-radius: 12px; }
+.card-header { background: transparent; border-bottom: 1px solid rgba(0,0,0,.08); font-weight: 600; }
+
+/* STATUS BADGES */
+.status-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 20px; font-size: .78rem; font-weight: 600;
+}
+
+/* PROGRESS */
+.progress { height: 8px; border-radius: 4px; background: #e9ecef; }
+.progress-bar { border-radius: 4px; }
+
+/* STRUCTURE ROW */
+.structure-row { border-left: 4px solid #dee2e6; padding-left: 12px; margin-bottom: 8px; }
+.structure-row.has-issues { border-left-color: var(--danger); }
+.structure-row.complete { border-left-color: var(--success); }
+.structure-row.in-progress { border-left-color: var(--accent); }
+
+/* PROJECT CARD HEADER */
+.project-header {
+  background: linear-gradient(135deg, var(--primary), #2d5f8f);
+  color: white; border-radius: 12px 12px 0 0; padding: 16px 20px;
+}
+.project-percent { font-size: 2rem; font-weight: 700; }
+
+/* COMPONENT PILLS */
+.comp-status-dot {
+  width: 10px; height: 10px; border-radius: 50%; display: inline-block;
+}
+
+/* SCAN PAGE */
+.scan-card { max-width: 480px; margin: 20px auto; }
+.scan-status-banner {
+  text-align: center; padding: 20px; border-radius: 12px;
+  font-size: 1.3rem; font-weight: 700; margin-bottom: 20px;
+}
+.action-btn { font-size: 1.1rem; padding: 14px; border-radius: 10px; width: 100%; margin-bottom: 10px; font-weight: 600; }
+.history-item { font-size: .82rem; border-left: 3px solid #dee2e6; padding-left: 10px; margin-bottom: 8px; }
+
+/* LABELS */
+@media print {
+  .no-print { display: none !important; }
+  .label-grid { display: flex; flex-wrap: wrap; }
+  .label-item { break-inside: avoid; page-break-inside: avoid; }
+  body { background: white; }
+}
+
+.label-item {
+  border: 2px solid #333; border-radius: 8px; padding: 12px;
+  width: 220px; display: inline-block; margin: 6px;
+  font-size: .75rem; vertical-align: top;
+  background: white;
+}
+.label-item .proj-name { font-weight: 700; font-size: .85rem; color: var(--primary); }
+.label-item .struct-name { color: #555; margin: 2px 0; }
+.label-item .comp-name { font-size: 1rem; font-weight: 700; margin: 4px 0; }
+.label-item .label-id { color: #999; font-size: .65rem; font-family: monospace; }
+.label-item img { display: block; margin: 8px auto 0; }
+
+/* ADMIN TABLES */
+.table-hover tbody tr:hover { background: #f0f4ff; }
+.action-btns { white-space: nowrap; }
+
+/* TOOLTIP BADGE */
+.badge-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  font-size: .7rem; font-weight: 700;
+}
+
+/* SPINNER */
+.spinner-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.3);
+  display: flex; align-items: center; justify-content: center; z-index: 9999;
+}
+
+/* TOAST */
+.toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; }

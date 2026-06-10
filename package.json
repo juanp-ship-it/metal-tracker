@@ -1,0 +1,13 @@
+{
+  "name": "metaltrack",
+  "version": "1.0.0",
+  "description": "Sistema de seguimiento de estructuras metálicas",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "qrcode": "^1.5.3"
+  }
+}

@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>MetalTrack - Escanear</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body { background: #f0f2f5; font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; }
+    .wrap { max-width: 460px; margin: 0 auto; padding: 16px; }
+
+    /* NAV */
+    nav { background: #1a2e4a; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+    nav span { color: white; font-weight: 700; font-size: 1rem; }
+    nav a { color: rgba(255,255,255,.7); font-size: .85rem; text-decoration: none; }
+
+    /* COMPONENT INFO */
+    .info-card { background: white; border-radius: 14px; padding: 18px; box-shadow: 0 2px 10px rgba(0,0,0,.09); margin-bottom: 14px; }
+    .breadcrumb { font-size: .78rem; color: #999; margin-bottom: 3px; }
+    .comp-name { font-size: 1.5rem; font-weight: 700; color: #1a2e4a; }
+    .comp-desc { font-size: .82rem; color: #888; margin-top: 3px; }
+
+    /* STATUS BANNER */
+    .status-banner { border-radius: 12px; padding: 18px; text-align: center; margin-bottom: 14px; }
+    .status-icon { font-size: 2.8rem; line-height: 1; }
+    .status-label { font-size: 1.1rem; font-weight: 700; margin-top: 6px; }
+
+    /* ACTION CARD */
+    .action-card { background: white; border-radius: 14px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,.09); }
+    .action-card label { font-weight: 600; margin-bottom: 6px; display: block; }
+    .name-input { width: 100%; padding: 13px 14px; font-size: 1rem; border: 2px solid #dee2e6; border-radius: 10px; outline: none; transition: border-color .2s; }
+    .name-input:focus { border-color: #0d6efd; }
+    .name-input.error { border-color: #dc3545; }
+
+    /* BUTTONS */
+    .btn-action { width: 100%; padding: 15px; font-size: 1.05rem; font-weight: 700; border: none; border-radius: 12px; cursor: pointer; margin-top: 12px; transition: opacity .15s; }
+    .btn-action:active { opacity: .8; }
+    .btn-primary-action { background: #0d6efd; color: white; }
+    .btn-success-action { background: #198754; color: white; }
+    .btn-danger-action  { background: #dc3545; color: white; }
+    .btn-warning-action { background: #fd7e14; color: white; }
+    .btn-secondary-action { background: #6c757d; color: white; }
+    .btn-info-action    { background: #0dcaf0; color: #000; }
+
+    /* NOTES */
+    .notes-box { width: 100%; padding: 12px; font-size: .95rem; border: 2px solid #dee2e6; border-radius: 10px; margin-top: 12px; resize: vertical; min-height: 90px; font-family: inherit; }
+    .notes-box.error { border-color: #dc3545; }
+
+    /* SUCCESS SCREEN */
+    .success-screen { text-align: center; padding: 30px 20px; }
+    .success-icon { font-size: 5rem; line-height: 1; }
+    .success-title { font-size: 1.4rem; font-weight: 700; margin-top: 14px; }
+    .success-sub { color: #666; margin-top: 6px; font-size: .9rem; }
+    .countdown { font-size: .8rem; color: #aaa; margin-top: 16px; }
+
+    /* HISTORY */
+    .history-card { background: white; border-radius: 14px; padding: 16px; margin-top: 14px; box-shadow: 0 2px 10px rgba(0,0,0,.09); }
+    .history-item { border-left: 3px solid #dee2e6; padding: 8px 12px; margin-bottom: 8px; border-radius: 0 8px 8px 0; background: #f8f9fa; font-size: .83rem; }
+    .history-item:last-child { margin-bottom: 0; }
+
+    /* LOADING / ERROR */
+    .center-msg { text-align: center; padding: 60px 20px; }
+    .center-msg .icon { font-size: 3.5rem; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <span>ï MetalTrack</span>
+  <a href="index.html">Dashboard</a>
+</nav>
+
+<div class="wrap">
+
+  <div id="loading" class="center-msg">
+    <div class="spinner-border text-primary" style="width:2.5rem;height:2.5rem"></div>
+    <p style="color:#888;margin-top:16px">Cargando...</p>
+  </div>
+
+  <div id="error-state" style="display:none" class="center-msg">
+    <div class="icon"></div>
+    <h5 style="margin-top:12px">Componente no encontrado</h5>
+    <p id="error-msg" style="color:#888;font-size:.9rem"></p>
+    <a href="index.html" class="btn btn-primary mt-2">Ir al Dashboard</a>
+  </div>
+
+  <div id="main" style="display:none">
+
+    <div class="info-card">
+      <div class="breadcrumb" id="breadcrumb"></div>
+      <div class="comp-name" id="comp-name"></div>
+      <div class="comp-desc" id="comp-desc"></div>
+    </div>
+
+    <div class="status-banner" id="status-banner">
+      <div class="status-icon" id="status-icon"></div>
+      <div class="status-label" id="status-label"></div>
+    </div>
+
+    <!-- WORKER FLOW: one-tap start -->
+    <div id="worker-flow" style="display:none" class="action-card">
+      <label>Tu nombre</label>
+      <input type="text" id="worker-name" class="name-input" placeholder="Escribe tu nombre" list="workers-list" autocomplete="off">
+      <datalist id="workers-list"></datalist>
+      <div id="worker-btn-container"></div>
+    </div>
+
+    <!-- QC FLOW: approve / reject -->
+    <div id="qc-flow" style="display:none" class="action-card">
+      <label>Tu nombre (QC)</label>
+      <input type="text" id="qc-name" class="name-input" placeholder="Escribe tu nombre" list="workers-list-qc" autocomplete="off">
+      <datalist id="workers-list-qc"></datalist>
+      <div id="qc-btn-container"></div>
+      <div id="qc-notes-section" style="display:none">
+        <textarea id="qc-notes" class="notes-box" placeholder="Describe qué necesita corrección..."></textarea>
+        <button class="btn-action btn-danger-action" onclick="submitQC()">Confirmar Rechazo</button>
+        <button class="btn-action btn-secondary-action" style="margin-top:8px" onclick="cancelQCReject()">Cancelar</button>
+      </div>
+    </div>
+
+    <!-- GALVANIZING FLOW -->
+    <div id="galv-flow" style="display:none" class="action-card">
+      <label>Tu nombre</label>
+      <input type="text" id="galv-name" class="name-input" placeholder="Escribe tu nombre" list="workers-list-galv" autocomplete="off">
+      <datalist id="workers-list-galv"></datalist>
+      <div id="galv-btn-container"></div>
+    </div>
+
+    <!-- DONE (galvanized) -->
+    <div id="done-flow" style="display:none" class="action-card">
+      <div class="success-screen">
+        <div class="success-icon"></div>
+        <div class="success-title" style="color:#198754">¡Proceso Completo!</div>
+        <div class="success-sub">Este componente ha completado todo el proceso de fabricación.</div>
+      </div>
+    </div>
+
+    <!-- SUCCESS SCREEN -->
+    <div id="success-screen" style="display:none" class="action-card">
+      <div class="success-screen">
+        <div class="success-icon" id="success-icon"></div>
+        <div class="success-title" id="success-title"></div>
+        <div class="success-sub" id="success-sub"></div>
+        <div class="countdown" id="countdown"></div>
+      </div>
+    </div>
+
+    <!-- TIMELINE -->
+    <div class="history-card" id="timeline-section" style="display:none">
+      <strong style="font-size:.9rem;display:block;margin-bottom:12px">ï Fases del Proceso</strong>
+      <div id="timeline-list"></div>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="history-card" id="history-section" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <strong style="font-size:.9rem">Historial</strong>
+        <span class="badge bg-secondary" id="history-count"></span>
+      </div>
+      <div id="history-list"></div>
+    </div>
+
+  </div><!-- /main -->
+</div>
+
+<!-- Toast -->
+<div style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;min-width:260px;text-align:center">
+  <div id="toast" style="display:none;padding:12px 20px;border-radius:10px;font-weight:600;color:white;font-size:.95rem"></div>
+</div>
+
+<script>
+let STATUS_CONFIG = {};
+let ACTION_CONFIG = {};
+let STATUS_NEXT = {};
+let componentData = null;
+let pendingQCAction = null;
+let componentId = null;
+
+// Worker actions = just execute and close. QC actions = approve/reject flow. Galv = execute and close.
+const WORKER_ACTIONS = ['start_assembly', 'restart_assembly', 'start_welding', 'restart_welding', 'restart_final'];
+const QC_ACTIONS     = ['approve_assembly', 'reject_assembly', 'approve_welding', 'reject_welding', 'approve_final', 'reject_final'];
+const GALV_ACTIONS   = ['send_to_galvanizing', 'mark_galvanized'];
+
+async function init() {
+  const params = new URLSearchParams(location.search);
+  componentId = params.get('id');
+  if (!componentId) { showError('Sin ID de componente.'); return; }
+
+  try {
+    const info = await fetch('/api/info').then(r => r.json());
+    STATUS_CONFIG = info.STATUS_CONFIG;
+    ACTION_CONFIG = info.ACTION_CONFIG;
+    STATUS_NEXT   = info.STATUS_NEXT;
+
+    const workers = await fetch('/api/workers').then(r => r.json());
+    const opts = workers.map(w => `<option value="${w.name}">`).join('');
+    ['workers-list','workers-list-qc','workers-list-galv'].forEach(id => {
+      document.getElementById(id).innerHTML = opts;
+    });
+
+    // Pre-fill saved name
+    const saved = localStorage.getItem('mt_worker_name');
+    if (saved) ['worker-name','qc-name','galv-name'].forEach(id => document.getElementById(id).value = saved);
+
+    await loadComponent();
+  } catch(e) {
+    showError('No se pudo conectar al servidor.');
+  }
+}
+
+async function loadComponent() {
+  const r = await fetch(`/api/components/${componentId}`);
+  if (!r.ok) { showError(`Componente no encontrado (ID: ${componentId})`); return; }
+  componentData = await r.json();
+  render();
+}
+
+function render() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('main').style.display = 'block';
+
+  const c = componentData;
+  const cfg = STATUS_CONFIG[c.status] || {};
+
+  // Info
+  document.getElementById('breadcrumb').textContent = `${c.project_name}  ${c.structure_name}`;
+  document.getElementById('comp-name').textContent = c.name;
+  document.getElementById('comp-desc').textContent = c.description || '';
+
+  // Status banner
+  const banner = document.getElementById('status-banner');
+  banner.style.background = cfg.bg || '#f0f0f0';
+  banner.style.color = cfg.color || '#333';
+  document.getElementById('status-icon').textContent = cfg.icon || '';
+  document.getElementById('status-label').textContent = cfg.label || c.status;
+
+  // Hide all flows
+  ['worker-flow','qc-flow','galv-flow','done-flow','success-screen'].forEach(id =>
+    document.getElementById(id).style.display = 'none'
+  );
+
+  const actions = c.available_actions || [];
+  if (!actions.length && c.status !== 'galvanized') {
+    // No actions available
+  } else if (c.status === 'completed') {
+    document.getElementById('done-flow').style.display = 'block';
+  } else {
+    const actionKeys = actions.map(a => a.key);
+    const isWorker = actionKeys.some(k => WORKER_ACTIONS.includes(k));
+    const isQC     = actionKeys.some(k => QC_ACTIONS.includes(k));
+    const isGalv   = actionKeys.some(k => GALV_ACTIONS.includes(k));
+
+    if (isQC) {
+      renderQCFlow(actions);
+    } else if (isWorker) {
+      renderWorkerFlow(actions);
+    } else if (isGalv) {
+      renderGalvFlow(actions);
+    }
+  }
+
+  renderTimeline(c.timeline || []);
+  renderHistory(c.history || []);
+}
+
+function renderWorkerFlow(actions) {
+  const flow = document.getElementById('worker-flow');
+  flow.style.display = 'block';
+  const a = actions[0];
+  const colorMap = { primary:'#0d6efd', warning:'#fd7e14', info:'#0dcaf0' };
+  const color = colorMap[a.btn] || '#0d6efd';
+  document.getElementById('worker-btn-container').innerHTML =
+    `<button class="btn-action" style="background:${color};color:white;margin-top:12px" onclick="submitWorker('${a.key}')">
+      ${a.label}
+    </button>`;
+}
+
+function renderQCFlow(actions) {
+  const flow = document.getElementById('qc-flow');
+  flow.style.display = 'block';
+  document.getElementById('qc-notes-section').style.display = 'none';
+  pendingQCAction = null;
+
+  const btns = actions.map(a => {
+    const colorMap = { success:'#198754', danger:'#dc3545' };
+    const bg = colorMap[a.btn] || '#333';
+    return `<button class="btn-action" style="background:${bg};color:white;margin-top:12px"
+      onclick="handleQC('${a.key}', ${a.requires_notes})">
+      ${a.label}
+    </button>`;
+  }).join('');
+  document.getElementById('qc-btn-container').innerHTML = btns;
+}
+
+function renderGalvFlow(actions) {
+  const flow = document.getElementById('galv-flow');
+  flow.style.display = 'block';
+  const a = actions[0];
+  const colorMap = { info:'#0dcaf0', success:'#198754' };
+  const bg = colorMap[a.btn] || '#6f42c1';
+  const tc = a.btn === 'info' ? '#000' : 'white';
+  document.getElementById('galv-btn-container').innerHTML =
+    `<button class="btn-action" style="background:${bg};color:${tc};margin-top:12px" onclick="submitGalv('${a.key}')">
+      ${a.label}
+    </button>`;
+}
+
+//  WORKER SUBMIT (close after) 
+async function submitWorker(actionKey) {
+  const name = document.getElementById('worker-name').value.trim();
+  if (!name) { shake('worker-name'); return; }
+  localStorage.setItem('mt_worker_name', name);
+  disableAll();
+  const r = await fetch(`/api/components/${componentId}/action`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: actionKey, worker_name: name, notes: '' })
+  });
+  const data = await r.json();
+  if (!r.ok) { toast(data.error || 'Error', '#dc3545'); enableAll(); return; }
+
+  showSuccess(
+    '',
+    '¡Registrado!',
+    `${name}  ${data.label}`,
+    true // auto-close
+  );
+}
+
+//  QC SUBMIT 
+function handleQC(actionKey, requiresNotes) {
+  const name = document.getElementById('qc-name').value.trim();
+  if (!name) { shake('qc-name'); return; }
+
+  if (requiresNotes) {
+    pendingQCAction = actionKey;
+    document.getElementById('qc-btn-container').style.display = 'none';
+    document.getElementById('qc-notes-section').style.display = 'block';
+    document.getElementById('qc-notes').value = '';
+    document.getElementById('qc-notes').focus();
+  } else {
+    pendingQCAction = actionKey;
+    submitQC();
+  }
+}
+
+function cancelQCReject() {
+  pendingQCAction = null;
+  document.getElementById('qc-btn-container').style.display = 'block';
+  document.getElementById('qc-notes-section').style.display = 'none';
+}
+
+async function submitQC() {
+  const name  = document.getElementById('qc-name').value.trim();
+  const notes = document.getElementById('qc-notes').value.trim();
+  const actionCfg = ACTION_CONFIG[pendingQCAction];
+  if (actionCfg?.requires_notes && !notes) {
+    shake('qc-notes'); return;
+  }
+  localStorage.setItem('mt_worker_name', name);
+  disableAll();
+  const r = await fetch(`/api/components/${componentId}/action`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: pendingQCAction, worker_name: name, notes })
+  });
+  const data = await r.json();
+  if (!r.ok) { toast(data.error || 'Error', '#dc3545'); enableAll(); return; }
+
+  const isReject = pendingQCAction.includes('reject');
+  showSuccess(
+    isReject ? '' : '',
+    isReject ? 'Rechazado' : 'Aprobado',
+    `${name}  ${data.label}`,
+    false // QC stays on screen (no auto-close)
+  );
+}
+
+//  GALV SUBMIT (close after) 
+async function submitGalv(actionKey) {
+  const name = document.getElementById('galv-name').value.trim();
+  if (!name) { shake('galv-name'); return; }
+  localStorage.setItem('mt_worker_name', name);
+  disableAll();
+  const r = await fetch(`/api/components/${componentId}/action`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: actionKey, worker_name: name, notes: '' })
+  });
+  const data = await r.json();
+  if (!r.ok) { toast(data.error || 'Error', '#dc3545'); enableAll(); return; }
+  showSuccess('ï', '¡Registrado!', `${name}  ${data.label}`, true);
+}
+
+//  SUCCESS SCREEN 
+function showSuccess(icon, title, sub, autoClose) {
+  ['worker-flow','qc-flow','galv-flow'].forEach(id =>
+    document.getElementById(id).style.display = 'none'
+  );
+  document.getElementById('success-screen').style.display = 'block';
+  document.getElementById('success-icon').textContent = icon;
+  document.getElementById('success-title').textContent = title;
+  document.getElementById('success-sub').textContent = sub;
+
+  if (autoClose) {
+    let secs = 3;
+    const cd = document.getElementById('countdown');
+    cd.textContent = `Cerrando en ${secs}s...`;
+    const iv = setInterval(() => {
+      secs--;
+      if (secs <= 0) {
+        clearInterval(iv);
+        window.close();
+        // Fallback if window.close() is blocked
+        document.getElementById('countdown').textContent = 'Puedes cerrar esta ventana.';
+      } else {
+        cd.textContent = `Cerrando en ${secs}s...`;
+      }
+    }, 1000);
+  } else {
+    document.getElementById('countdown').textContent = '';
+  }
+}
+
+//  HISTORY 
+function renderHistory(history) {
+  const section = document.getElementById('history-section');
+  if (!history.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  document.getElementById('history-count').textContent = history.length;
+
+  document.getElementById('history-list').innerHTML = history.map(h => {
+    const fromCfg = STATUS_CONFIG[h.from_status] || {};
+    const toCfg   = STATUS_CONFIG[h.to_status] || {};
+    const label   = ACTION_CONFIG[h.action]?.label || h.action;
+    const date    = new Date(h.timestamp).toLocaleString('es-DO', { dateStyle:'short', timeStyle:'short' });
+    const isReject = h.action.includes('reject');
+    const borderColor = isReject ? '#dc3545' : h.action.includes('approve') ? '#198754' : '#0d6efd';
+    return `<div class="history-item" style="border-left-color:${borderColor}">
+      <div style="display:flex;justify-content:space-between">
+        <strong>${h.worker_name}</strong>
+        <span style="color:#aaa;font-size:.75rem">${date}</span>
+      </div>
+      <div>${label}</div>
+      ${h.notes ? `<div style="color:#dc3545;font-size:.78rem;margin-top:2px"> ${h.notes}</div>` : ''}
+      <div style="color:#bbb;font-size:.72rem;margin-top:2px">${fromCfg.label||''}  ${toCfg.label||''}</div>
+    </div>`;
+  }).join('');
+}
+
+//  HELPERS 
+//  TIMELINE 
+function fmtDuration(ms) {
+  if (!ms || ms < 0) return '';
+  const totalMin = Math.floor(ms / 60000);
+  const days  = Math.floor(totalMin / 1440);
+  const hours = Math.floor((totalMin % 1440) / 60);
+  const mins  = totalMin % 60;
+  if (days > 0)  return `${days}d ${hours}h ${mins}m`;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
+}
+
+function fmtDate(ts) {
+  if (!ts) return '';
+  return new Date(ts).toLocaleString('es-DO', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function elapsedSince(ts) {
+  if (!ts) return '';
+  return fmtDuration(Date.now() - new Date(ts));
+}
+
+function renderTimeline(timeline) {
+  const section = document.getElementById('timeline-section');
+  const started = timeline.some(p => p.started_at);
+  if (!started) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+
+  const ICONS = { completed: '', in_progress: '', rejected: '', pending: '' };
+  const COLORS = { completed: '#198754', in_progress: '#0d6efd', rejected: '#dc3545', pending: '#aaa' };
+  const PHASE_ICONS = { assembly: '', welding: '', galvanizing: 'ï' };
+
+  document.getElementById('timeline-list').innerHTML = timeline.map(p => {
+    if (p.status === 'pending') return ''; // don't show future phases
+
+    const color   = COLORS[p.status];
+    const icon    = ICONS[p.status];
+    const phIcon  = PHASE_ICONS[p.key] || '';
+    const elapsed = p.status === 'in_progress' || p.status === 'rejected'
+      ? `<span style="color:#fd7e14;font-weight:600">En curso: ${elapsedSince(p.started_at)}</span>`
+      : `<span style="color:#555">Duración: <strong>${fmtDuration(p.duration_ms)}</strong></span>`;
+
+    const attempts = p.attempts > 1
+      ? `<span style="color:#dc3545;font-size:.72rem"> (${p.attempts} intentos)</span>` : '';
+
+    const workerLine = p.worker
+      ? `<div style="font-size:.75rem;color:#888;margin-top:2px"> ${p.worker}${p.qc_worker ? ` &nbsp;|&nbsp; ï QC: ${p.qc_worker}` : ''}</div>`
+      : '';
+
+    return `
+      <div style="display:flex;gap:12px;margin-bottom:14px;align-items:flex-start">
+        <div style="min-width:28px;text-align:center">
+          <div style="font-size:1.3rem">${phIcon}</div>
+          <div style="font-size:.9rem;margin-top:2px">${icon}</div>
+        </div>
+        <div style="flex:1;border-left:2px solid ${color};padding-left:12px">
+          <div style="font-weight:700;color:${color}">${p.name}${attempts}</div>
+          <div style="font-size:.78rem;color:#666;margin-top:3px">
+            Inicio: <strong>${fmtDate(p.started_at)}</strong>
+            ${p.completed_at ? ` &nbsp;&nbsp; Fin: <strong>${fmtDate(p.completed_at)}</strong>` : ''}
+          </div>
+          <div style="font-size:.78rem;margin-top:3px">${elapsed}</div>
+          ${workerLine}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function showError(msg) {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('error-state').style.display = 'block';
+  document.getElementById('error-msg').textContent = msg;
+}
+
+function disableAll() {
+  document.querySelectorAll('.btn-action').forEach(b => { b.disabled = true; b.style.opacity = '.5'; });
+}
+function enableAll() {
+  document.querySelectorAll('.btn-action').forEach(b => { b.disabled = false; b.style.opacity = '1'; });
+}
+
+function shake(id) {
+  const el = document.getElementById(id);
+  el.classList.add('error');
+  el.style.animation = 'none';
+  setTimeout(() => el.classList.remove('error'), 2000);
+  el.focus();
+}
+
+function toast(msg, bg) {
+  const t = document.getElementById('toast');
+  t.style.background = bg || '#198754';
+  t.textContent = msg;
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 3000);
+}
+
+init();
+</script>
+</body>
+</html>
+
