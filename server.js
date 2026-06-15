@@ -45,7 +45,7 @@ const workerSchema = new mongoose.Schema({ id: Number, name: String, role: Strin
 const Worker = mongoose.model('Worker', workerSchema);
 
 function now() {
-  return new Date().toISOString().replace('T', ' ').slice(0, 19);
+  return new Date().toLocaleString('es-CO', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(',', '');
 }
 
 // ── STATUS CONFIG ─────────────────────────────────────────────────────────────
