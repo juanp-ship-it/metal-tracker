@@ -35,7 +35,7 @@ const Project = mongoose.model('Project', projectSchema);
 const structureSchema = new mongoose.Schema({ id: Number, project_id: Number, name: String, description: String, created_at: String });
 const Structure = mongoose.model('Structure', structureSchema);
 
-const componentSchema = new mongoose.Schema({ id: Number, structure_id: Number, name: String, description: String, status: String, created_at: String });
+const componentSchema = new mongoose.Schema({ id: Number, structure_id: Number, name: String, description: String, status: String, created_at: String, heat_number: String });
 const Component = mongoose.model('Component', componentSchema);
 
 const historySchema = new mongoose.Schema({ id: Number, component_id: Number, action: String, worker_name: String, notes: String, from_status: String, to_status: String, timestamp: String });
@@ -335,6 +335,21 @@ app.post('/api/components/:id/action', async (req, res) => {
     }
 
     res.json({ success: true, new_status: to_status, label: STATUS_CONFIG[to_status]?.label });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/components/:id/heat', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { heat_number, notes } = req.body;
+    const c = await Component.findOne({ id });
+    if (!c) return res.status(404).json({ error: 'Componente no encontrado' });
+    await Component.findOneAndUpdate({ id }, { heat_number: heat_number?.trim() || '' });
+    if (notes?.trim()) {
+      const hid = await nextId('history');
+      await History.create({ id: hid, component_id: id, action: 'heat_update', worker_name: 'Braulio', notes: `Heat Number: ${heat_number?.trim()} ${notes.trim() ? '| ' + notes.trim() : ''}`, from_status: c.status, to_status: c.status, timestamp: now() });
+    }
+    res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

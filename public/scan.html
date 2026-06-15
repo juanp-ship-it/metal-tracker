@@ -146,6 +146,17 @@
       </div>
     </div>
 
+    <!-- HEAT NUMBER -->
+    <div class="action-card" id="heat-section" style="display:none">
+      <strong style="font-size:.95rem;display:block;margin-bottom:12px">Bitacora - Heat Number</strong>
+      <div id="heat-current" style="margin-bottom:10px;font-size:.9rem;color:#555"></div>
+      <label style="font-weight:600;font-size:.9rem">Heat Number</label>
+      <input type="text" id="heat-number-input" class="name-input" placeholder="Ej: A1234, HN-567..." autocomplete="off" style="margin-bottom:10px">
+      <label style="font-weight:600;font-size:.9rem">Notas adicionales (opcional)</label>
+      <textarea id="heat-notes-input" class="notes-box" placeholder="Observaciones sobre el material..." style="margin-bottom:10px"></textarea>
+      <button class="btn-action btn-primary-action" onclick="saveHeatNumber()">Guardar Heat Number</button>
+    </div>
+
     <!-- TIMELINE -->
     <div class="history-card" id="timeline-section" style="display:none">
       <strong style="font-size:.9rem;display:block;margin-bottom:12px">ï Fases del Proceso</strong>
@@ -260,8 +271,33 @@ function render() {
     }
   }
 
+  // Heat number section — siempre visible
+  document.getElementById('heat-section').style.display = 'block';
+  const heatCurrent = document.getElementById('heat-current');
+  if (c.heat_number) {
+    heatCurrent.innerHTML = `<strong>Heat Number actual:</strong> <span style="color:#0d6efd;font-weight:700">${c.heat_number}</span>`;
+    document.getElementById('heat-number-input').value = c.heat_number;
+  } else {
+    heatCurrent.textContent = 'Sin heat number registrado.';
+  }
+
   renderTimeline(c.timeline || []);
   renderHistory(c.history || []);
+}
+
+async function saveHeatNumber() {
+  const heat = document.getElementById('heat-number-input').value.trim();
+  const notes = document.getElementById('heat-notes-input').value.trim();
+  if (!heat) { shake('heat-number-input'); return; }
+  const r = await fetch(`/api/components/${componentId}/heat`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ heat_number: heat, notes })
+  });
+  const data = await r.json();
+  if (!r.ok) { toast(data.error || 'Error', '#dc3545'); return; }
+  document.getElementById('heat-notes-input').value = '';
+  document.getElementById('heat-current').innerHTML = `<strong>Heat Number actual:</strong> <span style="color:#0d6efd;font-weight:700">${heat}</span>`;
+  toast('Heat Number guardado', '#198754');
 }
 
 function renderWorkerFlow(actions) {
