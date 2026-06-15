@@ -161,47 +161,76 @@ function render(struct, tl, compDetails) {
     const cfg = STATUS_CONFIG[c.status] || {};
     const tlComp = compMap[c.id];
 
-    // Timeline phases
-    const phases = tlComp ? tlComp.timeline.filter(p => p.started_at).map(p => {
+    // Phase rows with worker info
+    const phaseRows = tlComp ? tlComp.timeline.map(p => {
       const color = PHASE_COLORS[p.key] || '#333';
-      const inProg = p.status === 'in_progress' || p.status === 'rejected';
-      const time = inProg ? `<span style="color:#fd7e14">${elapsed(p.started_at)}</span>` : fmtDuration(p.duration_ms);
-      return `<span style="font-size:.75rem;color:#555;margin-right:10px">
-        <span style="color:${color};font-weight:600">${PHASE_NAMES[p.key]}</span> ${time}
-        ${p.attempts > 1 ? `<span style="color:#dc3545;font-size:.7rem">(${p.attempts} intentos)</span>` : ''}
-      </span>`;
+      if (!p.started_at) {
+        return `<tr style="opacity:.4">
+          <td style="font-size:.8rem;color:${color};font-weight:600">${PHASE_NAMES[p.key]}</td>
+          <td colspan="3" style="font-size:.78rem;color:#aaa">Pendiente</td>
+        </tr>`;
+      }
+      const inProg = p.status === 'in_progress';
+      const rejected = p.status === 'rejected';
+      const statusTxt = inProg ? `<span style="color:#fd7e14;font-weight:600">En curso (${elapsed(p.started_at)})</span>`
+        : rejected ? `<span style="color:#dc3545;font-weight:600">Rechazado</span>`
+        : `<span style="color:#198754;font-weight:600">Completado (${fmtDuration(p.duration_ms)})</span>`;
+      return `<tr>
+        <td style="font-size:.8rem;color:${color};font-weight:600;white-space:nowrap">${PHASE_NAMES[p.key]}</td>
+        <td style="font-size:.78rem">${statusTxt}</td>
+        <td style="font-size:.75rem;color:#666;white-space:nowrap">${fmtDate(p.started_at)}</td>
+        <td style="font-size:.75rem;color:#555">
+          ${p.worker ? `Trabajador: <strong>${p.worker}</strong>` : ''}
+          ${p.qc_worker ? ` &nbsp; QC: <strong>${p.qc_worker}</strong>` : ''}
+          ${p.attempts > 1 ? ` &nbsp; <span style="color:#dc3545">${p.attempts} intentos</span>` : ''}
+        </td>
+      </tr>`;
     }).join('') : '';
 
-    // Heat number and notes from history
-    const heatHistory = (c.history || [])
-      .filter(h => h.action === 'heat_update')
-      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
+    // Heat number
     const heatHtml = c.heat_number
       ? `<span class="heat-badge">HN: ${c.heat_number}</span>`
       : `<span class="no-heat">Sin heat number</span>`;
 
-    const notesHtml = heatHistory.length
-      ? heatHistory.map(h => {
-          const note = h.notes.replace(/^Heat Number: [^|]+ \| ?/, '').trim();
-          return note ? `<div class="heat-note">${fmtDate(h.timestamp)} — ${note}</div>` : '';
-        }).filter(Boolean).join('')
-      : '';
+    // Heat notes from history
+    const heatNotes = (c.history || [])
+      .filter(h => h.action === 'heat_update')
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      .map(h => {
+        const note = h.notes.replace(/^Heat Number: [^|]+ \| ?/, '').trim();
+        return note ? `<div class="heat-note">${fmtDate(h.timestamp)} — ${note}</div>` : '';
+      }).filter(Boolean).join('');
+
+    // Rejection notes from history
+    const rejectionNotes = (c.history || [])
+      .filter(h => h.action.includes('reject') && h.notes)
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      .map(h => `<div style="background:#fde8ea;border-left:3px solid #dc3545;padding:6px 10px;border-radius:4px;font-size:.82rem;color:#555;margin-top:4px">
+        <strong style="color:#dc3545">Rechazo</strong> — ${fmtDate(h.timestamp)} — ${h.worker_name}: ${h.notes}
+      </div>`).join('');
 
     return `<div class="comp-card">
-      <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+      <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
         <div>
-          <div class="fw-bold">${c.name}</div>
+          <div class="fw-bold fs-6">${c.name}</div>
           ${c.description ? `<div class="text-muted small">${c.description}</div>` : ''}
-          <div class="mt-1">${phases}</div>
         </div>
-        <div class="text-end">
+        <div class="d-flex flex-column align-items-end gap-1">
           <span class="status-pill" style="background:${cfg.bg||'#eee'};color:${cfg.color||'#333'}">${cfg.label||c.status}</span>
-          <div class="mt-2">${heatHtml}</div>
+          ${heatHtml}
         </div>
       </div>
-      ${notesHtml ? `<div class="mt-2">${notesHtml}</div>` : ''}
-      <div class="mt-2 text-end">
+
+      ${phaseRows ? `<div class="table-responsive mb-2">
+        <table style="width:100%;border-collapse:collapse">
+          <tbody>${phaseRows}</tbody>
+        </table>
+      </div>` : ''}
+
+      ${heatNotes ? `<div class="mb-2">${heatNotes}</div>` : ''}
+      ${rejectionNotes ? `<div class="mb-2">${rejectionNotes}</div>` : ''}
+
+      <div class="text-end">
         <a href="scan.html?id=${c.id}" class="btn btn-sm btn-outline-primary">Ver / Escanear</a>
       </div>
     </div>`;
