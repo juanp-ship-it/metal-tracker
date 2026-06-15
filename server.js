@@ -97,6 +97,15 @@ const STATUS_NEXT = {
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+const HEAT_PASSWORD = process.env.HEAT_PASSWORD || 'braulio2024';
+
+app.post('/api/auth/heat', (req, res) => {
+  const { password } = req.body;
+  if (password === HEAT_PASSWORD) return res.json({ ok: true });
+  res.status(401).json({ ok: false, error: 'Contrasena incorrecta' });
+});
+
 // ── INFO ──────────────────────────────────────────────────────────────────────
 app.get('/api/info', (req, res) => {
   res.json({ baseUrl: BASE_URL, localIP: LOCAL_IP, port: PORT, STATUS_CONFIG, ACTION_CONFIG, STATUS_NEXT });

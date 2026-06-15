@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MetalTrack - Heat Number</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="style.css" rel="stylesheet">
+  <style>
+    body { background: #f0f4f8; }
+    .lock-card { max-width: 380px; margin: 80px auto; background: white; border-radius: 16px; padding: 36px 28px; box-shadow: 0 4px 20px rgba(0,0,0,.10); text-align: center; }
+    .lock-icon { font-size: 3rem; margin-bottom: 16px; }
+    .heat-card  { max-width: 480px; margin: 40px auto; background: white; border-radius: 16px; padding: 28px; box-shadow: 0 4px 20px rgba(0,0,0,.10); }
+    .field-label { font-weight: 600; font-size: .9rem; margin-bottom: 4px; display: block; }
+    .field-input { width: 100%; padding: 10px 14px; border: 1px solid #ccc; border-radius: 10px; font-size: 1rem; margin-bottom: 14px; }
+    .field-input:focus { outline: none; border-color: #0d6efd; box-shadow: 0 0 0 3px rgba(13,110,253,.15); }
+    .btn-save { width: 100%; padding: 13px; font-size: 1rem; font-weight: 700; background: #0d6efd; color: white; border: none; border-radius: 12px; cursor: pointer; }
+    .btn-save:hover { background: #0b5ed7; }
+    .current-heat { background: #e7f0ff; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; font-size: .9rem; }
+    .breadcrumb-heat { font-size: .82rem; color: #888; margin-bottom: 4px; }
+    .comp-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 16px; }
+    .success-msg { background: #d1e7dd; color: #0f5132; border-radius: 10px; padding: 12px 16px; margin-top: 14px; font-weight: 600; display: none; }
+    .error-msg { background: #f8d7da; color: #842029; border-radius: 10px; padding: 10px 14px; margin-top: 10px; font-size: .9rem; display: none; }
+  </style>
+</head>
+<body>
+
+<!-- LOCK SCREEN -->
+<div id="lock-screen" class="lock-card">
+  <div class="lock-icon">🔒</div>
+  <h5 class="fw-bold mb-2">Acceso Restringido</h5>
+  <p class="text-muted mb-4" style="font-size:.9rem">Esta seccion es solo para personal autorizado.</p>
+  <input type="password" id="password-input" class="field-input" placeholder="Contrasena" onkeydown="if(event.key==='Enter') checkPassword()">
+  <div id="pass-error" class="error-msg">Contrasena incorrecta. Intenta de nuevo.</div>
+  <button class="btn-save mt-3" onclick="checkPassword()">Entrar</button>
+</div>
+
+<!-- HEAT FORM -->
+<div id="heat-screen" style="display:none">
+  <nav class="navbar navbar-dark" style="background:#1a2e4a">
+    <div class="container-fluid px-4">
+      <span class="navbar-brand">MetalTrack - Bitacora Heat Number</span>
+      <button class="btn btn-outline-light btn-sm" onclick="goBack()">Volver</button>
+    </div>
+  </nav>
+
+  <div class="heat-card">
+    <div id="comp-info">
+      <div class="breadcrumb-heat" id="breadcrumb"></div>
+      <div class="comp-title" id="comp-name"></div>
+    </div>
+
+    <div id="current-heat-box" class="current-heat" style="display:none">
+      <strong>Heat Number actual:</strong>
+      <span id="current-heat-value" style="color:#0d6efd;font-weight:700;margin-left:6px"></span>
+    </div>
+
+    <label class="field-label">Nombre</label>
+    <input type="text" id="worker-name" class="field-input" placeholder="Tu nombre" value="Braulio">
+
+    <label class="field-label">Heat Number</label>
+    <input type="text" id="heat-number" class="field-input" placeholder="Ej: A1234, HN-567...">
+
+    <label class="field-label">Notas adicionales (opcional)</label>
+    <textarea id="heat-notes" class="field-input" rows="3" placeholder="Observaciones sobre el material..."></textarea>
+
+    <button class="btn-save" onclick="saveHeat()">Guardar Heat Number</button>
+    <div class="success-msg" id="success-msg">Heat Number guardado correctamente</div>
+    <div class="error-msg" id="save-error"></div>
+  </div>
+</div>
+
+<script>
+let componentId = null;
+
+async function checkPassword() {
+  const pass = document.getElementById('password-input').value;
+  if (!pass) return;
+
+  const r = await fetch('/api/auth/heat', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: pass })
+  });
+  const data = await r.json();
+
+  if (data.ok) {
+    sessionStorage.setItem('heat_auth', '1');
+    document.getElementById('lock-screen').style.display = 'none';
+    document.getElementById('heat-screen').style.display = 'block';
+    loadComponent();
+  } else {
+    const err = document.getElementById('pass-error');
+    err.style.display = 'block';
+    document.getElementById('password-input').value = '';
+    setTimeout(() => err.style.display = 'none', 3000);
+  }
+}
+
+async function loadComponent() {
+  const params = new URLSearchParams(location.search);
+  componentId = params.get('id');
+
+  if (!componentId) {
+    document.getElementById('comp-info').innerHTML = '<p class="text-muted">Sin componente especificado.</p>';
+    return;
+  }
+
+  const r = await fetch(`/api/components/${componentId}`);
+  if (!r.ok) { document.getElementById('comp-name').textContent = 'Componente no encontrado'; return; }
+  const c = await r.json();
+
+  document.getElementById('breadcrumb').textContent = `${c.project_name}  ${c.structure_name}`;
+  document.getElementById('comp-name').textContent = c.name;
+
+  if (c.heat_number) {
+    document.getElementById('current-heat-box').style.display = 'block';
+    document.getElementById('current-heat-value').textContent = c.heat_number;
+    document.getElementById('heat-number').value = c.heat_number;
+  }
+}
+
+async function saveHeat() {
+  const heat = document.getElementById('heat-number').value.trim();
+  const notes = document.getElementById('heat-notes').value.trim();
+  const worker = document.getElementById('worker-name').value.trim() || 'Braulio';
+
+  if (!heat) {
+    document.getElementById('heat-number').focus();
+    return;
+  }
+
+  const r = await fetch(`/api/components/${componentId}/heat`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ heat_number: heat, notes, worker_name: worker })
+  });
+  const data = await r.json();
+
+  if (r.ok) {
+    document.getElementById('current-heat-box').style.display = 'block';
+    document.getElementById('current-heat-value').textContent = heat;
+    document.getElementById('heat-notes').value = '';
+    const msg = document.getElementById('success-msg');
+    msg.style.display = 'block';
+    setTimeout(() => { msg.style.display = 'none'; goBack(); }, 2000);
+  } else {
+    const err = document.getElementById('save-error');
+    err.textContent = data.error || 'Error al guardar';
+    err.style.display = 'block';
+  }
+}
+
+function goBack() {
+  const params = new URLSearchParams(location.search);
+  const id = params.get('id');
+  if (id) window.location.href = `scan.html?id=${id}`;
+  else history.back();
+}
+
+// Auto-check if already authenticated in this session
+window.onload = () => {
+  if (sessionStorage.getItem('heat_auth') === '1') {
+    document.getElementById('lock-screen').style.display = 'none';
+    document.getElementById('heat-screen').style.display = 'block';
+    loadComponent();
+  }
+  document.getElementById('password-input').focus();
+};
+</script>
+</body>
+</html>
