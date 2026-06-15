@@ -371,7 +371,7 @@ async function submitQC() {
     isReject ? '' : '',
     isReject ? 'Rechazado' : 'Aprobado',
     `${name}  ${data.label}`,
-    false // QC stays on screen (no auto-close)
+    true // auto-close after 3s for both approve and reject
   );
 }
 
