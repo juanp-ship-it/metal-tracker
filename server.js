@@ -127,7 +127,7 @@ app.get('/api/projects', async (req, res) => {
       const structs = structures.filter(s => s.project_id === p.id);
       const sIds = structs.map(s => s.id);
       const comps = components.filter(c => sIds.includes(c.structure_id));
-      return { ...p.toObject(), structure_count: structs.length, component_count: comps.length, done_count: comps.filter(c => c.status === 'completed').length };
+      return { ...p, structure_count: structs.length, component_count: comps.length, done_count: comps.filter(c => c.status === 'completed').length };
     });
     res.json(result);
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -142,9 +142,9 @@ app.get('/api/projects/:id', async (req, res) => {
     const components = await Component.find().lean();
     const result = await Promise.all(structures.map(async s => {
       const comps = components.filter(c => c.structure_id === s.id);
-      return { ...s.toObject(), component_count: comps.length, done_count: comps.filter(c => c.status === 'completed').length, statuses: comps.map(c => c.status).join(',') };
+      return { ...s, component_count: comps.length, done_count: comps.filter(c => c.status === 'completed').length, statuses: comps.map(c => c.status).join(',') };
     }));
-    res.json({ ...p.toObject(), structures: result });
+    res.json({ ...p, structures: result });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -192,7 +192,7 @@ app.get('/api/structures', async (req, res) => {
     const result = structs.map(s => {
       const proj = projects.find().lean();
       const comps = components.filter(c => c.structure_id === s.id);
-      return { ...s.toObject(), project_name: proj?.name||'', component_count: comps.length, done_count: comps.filter(c => c.status === 'completed').length };
+      return { ...s, project_name: proj?.name||'', component_count: comps.length, done_count: comps.filter(c => c.status === 'completed').length };
     });
     res.json(result);
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -205,7 +205,7 @@ app.get('/api/structures/:id', async (req, res) => {
     if (!s) return res.status(404).json({ error: 'Not found' });
     const proj = await Project.findOne().lean();
     const components = await Component.find().lean().sort({ id: 1 });
-    res.json({ ...s.toObject(), project_name: proj?.name||'', components });
+    res.json({ ...s, project_name: proj?.name||'', components });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -255,7 +255,7 @@ app.get('/api/components', async (req, res) => {
     const result = comps.map(c => {
       const s = structures.find().lean();
       const p = projects.find().lean();
-      return { ...c.toObject(), structure_name: s?.name||'', project_name: p?.name||'', project_id: p?.id };
+      return { ...c, structure_name: s?.name||'', project_name: p?.name||'', project_id: p?.id };
     });
     res.json(result);
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -272,7 +272,7 @@ app.get('/api/components/:id', async (req, res) => {
     const available_actions = (STATUS_NEXT[c.status] || []).map(k => ({ key: k, ...ACTION_CONFIG[k] }));
     const timeline = buildComponentTimeline([...history]);
     res.json({
-      ...c.toObject(),
+      ...c,
       structure_name: s?.name||'', structure_id: s?.id,
       project_name: p?.name||'', project_id: p?.id, client: p?.client||'',
       history, available_actions, status_info: STATUS_CONFIG[c.status], timeline,
@@ -540,9 +540,9 @@ app.get('/api/report/project/:id', async (req, res) => {
       const compData = await Promise.all(components.map(async c => {
         allCompIds.push(c.id);
         const history = await History.find().lean().sort({ id: 1 });
-        return { ...c.toObject(), timeline: buildComponentTimeline(history) };
+        return { ...c, timeline: buildComponentTimeline(history) };
       }));
-      return { ...s.toObject(), components: compData };
+      return { ...s, components: compData };
     }));
 
     const statusCounts = {};
