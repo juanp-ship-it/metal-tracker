@@ -109,9 +109,23 @@ async function init() {
     fetch(`/api/structures/${id}/timeline`).then(r => r.json()),
   ]);
 
-  // Load heat numbers and notes for all components
+  if (!struct || struct.error) {
+    document.getElementById('loading').innerHTML = `<p class="text-danger">Error: ${struct?.error || 'Estructura no encontrada'}</p>`;
+    return;
+  }
+
+  if (!struct.components || struct.components.length === 0) {
+    document.getElementById('loading').innerHTML = `<p class="text-muted">Esta estructura no tiene componentes registrados.</p>`;
+    return;
+  }
+
+  // Load full detail for each component
   const compDetails = await Promise.all(
-    struct.components.map(c => fetch(`/api/components/${c.id}`).then(r => r.json()))
+    struct.components.map(c =>
+      fetch(`/api/components/${c.id}`)
+        .then(r => r.json())
+        .catch(() => ({ ...c, history: [], available_actions: [], timeline: [] }))
+    )
   );
 
   render(struct, tl, compDetails);
