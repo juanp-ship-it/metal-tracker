@@ -142,6 +142,7 @@ async function buildProjectCard(p) {
   const color = progressColor(pct);
 
   const structureRows = detail.structures.map(s => {
+    console.log('estructura:', s.id, s.name);
     const sDone = s.done_count || 0;
     const sTotal = s.component_count || 0;
     const sPct = sTotal ? Math.round(sDone/sTotal*100) : 0;
