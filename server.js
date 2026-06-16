@@ -457,9 +457,9 @@ app.get('/api/structures/:id/timeline', async (req, res) => {
     const s = await Structure.findOne({ id });
     if (!s) return res.status(404).json({ error: 'Not found' });
 
-    const components = await Component.find({ structure_id: id });
+    const components = await Component.find({ structure_id: id }).lean();
     const result = await Promise.all(components.map(async c => {
-      const history = await History.find({ component_id: c.id }).sort({ id: 1 });
+      const history = await History.find({ component_id: c.id }).sort({ id: 1 }).lean();
       return { id: c.id, name: c.name, status: c.status, timeline: buildComponentTimeline(history) };
     }));
 

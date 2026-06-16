@@ -90,7 +90,17 @@ function fmtDuration(ms) {
 }
 function fmtDate(ts) {
   if (!ts) return '';
-  return new Date(ts).toLocaleString('es-DO', { dateStyle:'short', timeStyle:'short' });
+  // Handle DD/MM/YYYY HH:mm:ss format
+  let d;
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(ts)) {
+    const [datePart, timePart] = ts.split(' ');
+    const [day, month, year] = datePart.split('/');
+    d = new Date(`${year}-${month}-${day}${timePart ? ' ' + timePart : ''}`);
+  } else {
+    d = new Date(ts);
+  }
+  if (isNaN(d)) return ts;
+  return d.toLocaleString('es-DO', { dateStyle:'short', timeStyle:'short' });
 }
 function elapsed(ts) {
   return fmtDuration(Date.now() - new Date(ts));
@@ -173,8 +183,6 @@ function render(struct, tl, compDetails) {
   }).join('');
   document.getElementById('phase-summary').innerHTML = phaseSummaryHtml;
 
-  // DEBUG
-  document.getElementById('phase-summary').innerHTML += `<pre style="font-size:.7rem;color:#666">tl.phaseSummary: ${JSON.stringify(tl.phaseSummary?.length)} items | tl.components: ${JSON.stringify(tl.components?.length)} | compDetails: ${compDetails.length}</pre>`;
 
   // Components
   const compMap = {};
