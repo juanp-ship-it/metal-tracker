@@ -136,14 +136,14 @@ app.get('/api/projects', async (req, res) => {
 app.get('/api/projects/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const p = await Project.findOne().lean();
+    const p = await Project.findOne({ id }).lean();
     if (!p) return res.status(404).json({ error: 'Not found' });
-    const structures = await Structure.find().lean();
+    const structures = await Structure.find({ project_id: id }).lean();
     const components = await Component.find().lean();
-    const result = await Promise.all(structures.map(async s => {
+    const result = structures.map(s => {
       const comps = components.filter(c => c.structure_id === s.id);
       return { ...s, component_count: comps.length, done_count: comps.filter(c => c.status === 'completed').length, statuses: comps.map(c => c.status).join(',') };
-    }));
+    });
     res.json({ ...p, structures: result });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -169,9 +169,9 @@ app.put('/api/projects/:id', async (req, res) => {
 app.delete('/api/projects/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const structs = await Structure.find().lean();
+    const structs = await Structure.find({ project_id: id }).lean();
     const sIds = structs.map(s => s.id);
-    const comps = await Component.find().lean();
+    const comps = await Component.find({ structure_id: { $in: sIds } }).lean();
     const cIds = comps.map(c => c.id);
     await History.deleteMany({ component_id: { $in: cIds } });
     await Component.deleteMany({ structure_id: { $in: sIds } });
@@ -186,11 +186,11 @@ app.get('/api/structures', async (req, res) => {
   try {
     const { project_id } = req.query;
     const filter = project_id ? { project_id: parseInt(project_id) } : {};
-    const structs = await Structure.find().lean();
+    const structs = await Structure.find(filter).lean();
     const projects = await Project.find().lean();
     const components = await Component.find().lean();
     const result = structs.map(s => {
-      const proj = projects.find().lean();
+      const proj = projects.find(p => p.id === s.project_id);
       const comps = components.filter(c => c.structure_id === s.id);
       return { ...s, project_name: proj?.name||'', component_count: comps.length, done_count: comps.filter(c => c.status === 'completed').length };
     });
@@ -201,10 +201,10 @@ app.get('/api/structures', async (req, res) => {
 app.get('/api/structures/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const s = await Structure.findOne().lean();
+    const s = await Structure.findOne({ id }).lean();
     if (!s) return res.status(404).json({ error: 'Not found' });
-    const proj = await Project.findOne().lean();
-    const components = await Component.find().lean().sort({ id: 1 });
+    const proj = await Project.findOne({ id: s.project_id }).lean();
+    const components = await Component.find({ structure_id: id }).lean().sort({ id: 1 });
     res.json({ ...s, project_name: proj?.name||'', components });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -230,7 +230,7 @@ app.put('/api/structures/:id', async (req, res) => {
 app.delete('/api/structures/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const comps = await Component.find().lean();
+    const comps = await Component.find({ structure_id: id }).lean();
     const cIds = comps.map(c => c.id);
     await History.deleteMany({ component_id: { $in: cIds } });
     await Component.deleteMany({ structure_id: id });
@@ -249,12 +249,12 @@ app.get('/api/components', async (req, res) => {
       const sIds = (await Structure.find({ project_id: parseInt(project_id) }).lean()).map(s => s.id);
       filter.structure_id = { $in: sIds };
     }
-    const comps = await Component.find().lean();
+    const comps = await Component.find(filter).lean();
     const structures = await Structure.find().lean();
     const projects = await Project.find().lean();
     const result = comps.map(c => {
-      const s = structures.find().lean();
-      const p = projects.find().lean();
+      const s = structures.find(x => x.id === c.structure_id);
+      const p = projects.find(x => x.id === s?.project_id);
       return { ...c, structure_name: s?.name||'', project_name: p?.name||'', project_id: p?.id };
     });
     res.json(result);
@@ -264,11 +264,11 @@ app.get('/api/components', async (req, res) => {
 app.get('/api/components/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const c = await Component.findOne().lean();
+    const c = await Component.findOne({ id }).lean();
     if (!c) return res.status(404).json({ error: 'Componente no encontrado' });
-    const s = await Structure.findOne().lean();
-    const p = await Project.findOne().lean();
-    const history = await History.find().lean().sort({ id: -1 });
+    const s = await Structure.findOne({ id: c.structure_id }).lean();
+    const p = await Project.findOne({ id: s?.project_id }).lean();
+    const history = await History.find({ component_id: id }).lean().sort({ id: -1 });
     const available_actions = (STATUS_NEXT[c.status] || []).map(k => ({ key: k, ...ACTION_CONFIG[k] }));
     const timeline = buildComponentTimeline([...history]);
     res.json({
@@ -328,7 +328,7 @@ app.post('/api/components/:id/action', async (req, res) => {
     if (!worker_name?.trim()) return res.status(400).json({ error: 'Nombre del trabajador requerido' });
 
     const id = parseInt(req.params.id);
-    const c = await Component.findOne().lean();
+    const c = await Component.findOne({ id }).lean();
     if (!c) return res.status(404).json({ error: 'Componente no encontrado' });
 
     const allowed = STATUS_NEXT[c.status] || [];
@@ -358,7 +358,7 @@ app.put('/api/components/:id/heat', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const { heat_number, notes } = req.body;
-    const c = await Component.findOne().lean();
+    const c = await Component.findOne({ id }).lean();
     if (!c) return res.status(404).json({ error: 'Componente no encontrado' });
     await Component.findOneAndUpdate({ id }, { heat_number: heat_number?.trim() || '' });
     if (notes?.trim()) {
@@ -372,7 +372,7 @@ app.put('/api/components/:id/heat', async (req, res) => {
 app.post('/api/components/:id/reset', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const c = await Component.findOne().lean();
+    const c = await Component.findOne({ id }).lean();
     if (!c) return res.status(404).json({ error: 'Not found' });
     await Component.findOneAndUpdate({ id }, { status: 'pending' });
     const hid = await nextId('history');
@@ -384,10 +384,10 @@ app.post('/api/components/:id/reset', async (req, res) => {
 app.post('/api/components/:id/undo', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const c = await Component.findOne().lean();
+    const c = await Component.findOne({ id }).lean();
     if (!c) return res.status(404).json({ error: 'Not found' });
 
-    const compHistory = await History.find().lean().sort({ id: -1 });
+    const compHistory = await History.find({ component_id: id, action: { $nin: ['undo','reset'] } }).lean().sort({ id: -1 });
     if (!compHistory.length) return res.status(400).json({ error: 'No hay acciones para deshacer' });
 
     const lastAction = compHistory[0];
@@ -448,18 +448,18 @@ function buildComponentTimeline(history) {
 app.get('/api/structures/:id/timeline', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const s = await Structure.findOne().lean();
+    const s = await Structure.findOne({ id }).lean();
     if (!s) return res.status(404).json({ error: 'Not found' });
 
     const components = await Component.find({ structure_id: id }).lean();
     const result = await Promise.all(components.map(async c => {
-      const history = await History.find().lean().sort({ id: 1 }).lean();
+      const history = await History.find({ component_id: c.id }).lean().sort({ id: 1 });
       return { id: c.id, name: c.name, status: c.status, timeline: buildComponentTimeline(history) };
     }));
 
     const PHASE_KEYS = ['assembly', 'welding', 'galvanizing'];
     const phaseSummary = PHASE_KEYS.map(key => {
-      const phasesForKey = result.map(c => c.timeline.find().lean()).filter(Boolean);
+      const phasesForKey = result.map(c => c.timeline.find(p => p.key === key)).filter(Boolean);
       const started = phasesForKey.filter(p => p.started_at).map(p => new Date(p.started_at));
       const completed = phasesForKey.filter(p => p.completed_at).map(p => new Date(p.completed_at));
       const allDone = phasesForKey.length > 0 && phasesForKey.every(p => p.status === 'completed');
@@ -529,17 +529,17 @@ app.delete('/api/workers/:id', async (req, res) => {
 app.get('/api/report/project/:id', async (req, res) => {
   try {
     const pid = parseInt(req.params.id);
-    const project = await Project.findOne().lean();
+    const project = await Project.findOne({ id: pid }).lean();
     if (!project) return res.status(404).json({ error: 'Not found' });
 
-    const structures = await Structure.find().lean();
+    const structures = await Structure.find({ project_id: pid }).lean();
     const allCompIds = [];
 
     const result = await Promise.all(structures.map(async s => {
-      const components = await Component.find().lean().sort({ id: 1 });
+      const components = await Component.find({ structure_id: s.id }).lean().sort({ id: 1 });
       const compData = await Promise.all(components.map(async c => {
         allCompIds.push(c.id);
-        const history = await History.find().lean().sort({ id: 1 });
+        const history = await History.find({ component_id: c.id }).lean().sort({ id: 1 });
         return { ...c, timeline: buildComponentTimeline(history) };
       }));
       return { ...s, components: compData };
@@ -548,7 +548,7 @@ app.get('/api/report/project/:id', async (req, res) => {
     const statusCounts = {};
     result.flatMap(s => s.components).forEach(c => { statusCounts[c.status] = (statusCounts[c.status]||0)+1; });
 
-    const allHistory = await History.find().lean();
+    const allHistory = await History.find({ component_id: { $in: allCompIds } }).lean();
     const allDates = allHistory.map(h => new Date(h.timestamp));
     const minDate = allDates.length ? new Date(Math.min(...allDates)) : null;
     const maxDate = allDates.length ? new Date(Date.now()) : null;
