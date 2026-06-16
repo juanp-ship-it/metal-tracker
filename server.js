@@ -21,6 +21,7 @@ const LOCAL_IP = getLocalIP();
 const BASE_URL = process.env.BASE_URL || `http://${LOCAL_IP}:${PORT}`;
 
 // ── MONGOOSE SCHEMAS ──────────────────────────────────────────────────────────
+mongoose.plugin(schema => { schema.set('toJSON', { virtuals: false }); schema.set('toObject', { virtuals: false }); });
 const opts = { id: false };
 
 const counterSchema = new mongoose.Schema({ _id: String, seq: { type: Number, default: 0 } });
