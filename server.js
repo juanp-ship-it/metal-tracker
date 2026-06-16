@@ -38,7 +38,7 @@ const Project = mongoose.model('Project', projectSchema);
 const structureSchema = new mongoose.Schema({ id: Number, project_id: Number, name: String, description: String, created_at: String }, opts);
 const Structure = mongoose.model('Structure', structureSchema);
 
-const componentSchema = new mongoose.Schema({ id: Number, structure_id: Number, name: String, description: String, status: String, created_at: String, heat_number: String }, opts);
+const componentSchema = new mongoose.Schema({ id: Number, structure_id: Number, name: String, description: String, status: String, created_at: String, heat_number: String, sub_components: [{ name: String, heat_number: String, po: String }] }, opts);
 const Component = mongoose.model('Component', componentSchema);
 
 const historySchema = new mongoose.Schema({ id: Number, component_id: Number, action: String, worker_name: String, notes: String, from_status: String, to_status: String, timestamp: String }, opts);
@@ -365,6 +365,23 @@ app.put('/api/components/:id/heat', async (req, res) => {
       const hid = await nextId('history');
       await History.create({ id: hid, component_id: id, action: 'heat_update', worker_name: 'Braulio', notes: `Heat Number: ${heat_number?.trim()} ${notes.trim() ? '| ' + notes.trim() : ''}`, from_status: c.status, to_status: c.status, timestamp: now() });
     }
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/components/:id/subcomponents', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { sub_components, worker_name } = req.body;
+    if (!Array.isArray(sub_components)) return res.status(400).json({ error: 'Invalid data' });
+    const clean = sub_components.map(s => ({
+      name: (s.name || '').trim(),
+      heat_number: (s.heat_number || '').trim(),
+      po: (s.po || '').trim()
+    })).filter(s => s.name);
+    await Component.findOneAndUpdate({ id }, { sub_components: clean });
+    const hid = await nextId('history');
+    await History.create({ id: hid, component_id: id, action: 'heat_update', worker_name: worker_name || 'Braulio', notes: `Piezas actualizadas: ${clean.length} registros`, from_status: 'n/a', to_status: 'n/a', timestamp: now() });
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

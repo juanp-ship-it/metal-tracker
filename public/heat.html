@@ -2,25 +2,66 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <title>MetalTrack - Heat Number</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="style.css" rel="stylesheet">
   <style>
-    body { background: #f0f4f8; }
-    .lock-card { max-width: 380px; margin: 80px auto; background: white; border-radius: 16px; padding: 36px 28px; box-shadow: 0 4px 20px rgba(0,0,0,.10); text-align: center; }
-    .lock-icon { font-size: 3rem; margin-bottom: 16px; }
-    .heat-card  { max-width: 480px; margin: 40px auto; background: white; border-radius: 16px; padding: 28px; box-shadow: 0 4px 20px rgba(0,0,0,.10); }
-    .field-label { font-weight: 600; font-size: .9rem; margin-bottom: 4px; display: block; }
-    .field-input { width: 100%; padding: 10px 14px; border: 1px solid #ccc; border-radius: 10px; font-size: 1rem; margin-bottom: 14px; }
-    .field-input:focus { outline: none; border-color: #0d6efd; box-shadow: 0 0 0 3px rgba(13,110,253,.15); }
-    .btn-save { width: 100%; padding: 13px; font-size: 1rem; font-weight: 700; background: #0d6efd; color: white; border: none; border-radius: 12px; cursor: pointer; }
-    .btn-save:hover { background: #0b5ed7; }
-    .current-heat { background: #e7f0ff; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; font-size: .9rem; }
-    .breadcrumb-heat { font-size: .82rem; color: #888; margin-bottom: 4px; }
-    .comp-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 16px; }
-    .success-msg { background: #d1e7dd; color: #0f5132; border-radius: 10px; padding: 12px 16px; margin-top: 14px; font-weight: 600; display: none; }
-    .error-msg { background: #f8d7da; color: #842029; border-radius: 10px; padding: 10px 14px; margin-top: 10px; font-size: .9rem; display: none; }
+    * { box-sizing: border-box; }
+    body { background: #f0f4f8; font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; }
+
+    /* LOCK */
+    .lock-card { max-width: 360px; margin: 80px auto; background: white; border-radius: 16px; padding: 36px 28px; box-shadow: 0 4px 20px rgba(0,0,0,.10); text-align: center; }
+    .lock-icon { font-size: 3rem; margin-bottom: 12px; }
+
+    /* NAV */
+    nav { background: #1a2e4a; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+    nav span { color: white; font-weight: 700; font-size: 1rem; }
+    nav button { background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3); color: white; border-radius: 8px; padding: 6px 14px; font-size: .85rem; cursor: pointer; }
+
+    /* MAIN */
+    .wrap { max-width: 560px; margin: 0 auto; padding: 16px; }
+    .info-card { background: white; border-radius: 14px; padding: 18px; box-shadow: 0 2px 10px rgba(0,0,0,.08); margin-bottom: 14px; }
+    .breadcrumb-txt { font-size: .78rem; color: #999; margin-bottom: 2px; }
+    .comp-title { font-size: 1.4rem; font-weight: 700; color: #1a2e4a; }
+
+    /* WORKER SELECT */
+    .field-label { font-weight: 600; font-size: .9rem; margin-bottom: 5px; display: block; }
+    .field-input { width: 100%; padding: 11px 14px; border: 2px solid #dee2e6; border-radius: 10px; font-size: 1rem; font-family: inherit; outline: none; transition: border-color .2s; background: white; }
+    .field-input:focus { border-color: #0d6efd; }
+    .select-wrap { position: relative; margin-bottom: 16px; }
+    .select-wrap::after { content: '▼'; position: absolute; right: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; font-size: .72rem; color: #888; }
+    select.field-input { appearance: none; -webkit-appearance: none; cursor: pointer; }
+
+    /* TABLE */
+    .table-card { background: white; border-radius: 14px; padding: 18px; box-shadow: 0 2px 10px rgba(0,0,0,.08); margin-bottom: 14px; }
+    .table-title { font-weight: 700; font-size: .95rem; margin-bottom: 14px; color: #1a2e4a; }
+
+    .piece-row { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px; align-items: center; margin-bottom: 10px; }
+    .piece-input { width: 100%; padding: 10px 12px; border: 1.5px solid #dee2e6; border-radius: 8px; font-size: .9rem; font-family: inherit; outline: none; transition: border-color .2s; }
+    .piece-input:focus { border-color: #0d6efd; }
+    .piece-input.error { border-color: #dc3545; }
+    .col-header { font-size: .75rem; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+    .col-headers { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px; margin-bottom: 4px; padding-right: 36px; }
+
+    .btn-del { background: none; border: none; color: #dc3545; font-size: 1.2rem; cursor: pointer; padding: 4px 8px; border-radius: 6px; line-height: 1; }
+    .btn-del:hover { background: #fde8ea; }
+
+    .btn-add { width: 100%; padding: 11px; border: 2px dashed #0d6efd; border-radius: 10px; background: none; color: #0d6efd; font-weight: 600; font-size: .95rem; cursor: pointer; margin-top: 6px; transition: background .15s; }
+    .btn-add:hover { background: #e7f0ff; }
+
+    .btn-save { width: 100%; padding: 14px; background: #198754; color: white; border: none; border-radius: 12px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: opacity .15s; }
+    .btn-save:active { opacity: .8; }
+    .btn-save:disabled { opacity: .5; cursor: not-allowed; }
+
+    .empty-msg { text-align: center; color: #bbb; font-size: .9rem; padding: 20px 0 10px; }
+
+    .toast-bar { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; min-width: 240px; text-align: center; }
+    .toast-inner { display: none; padding: 12px 20px; border-radius: 10px; font-weight: 600; color: white; font-size: .95rem; }
+
+    /* password inputs */
+    .pass-input { width: 100%; padding: 12px 14px; border: 2px solid #dee2e6; border-radius: 10px; font-size: 1rem; margin-bottom: 12px; outline: none; text-align: center; letter-spacing: .1em; }
+    .pass-input:focus { border-color: #0d6efd; }
+    .err-msg { background: #fde8ea; color: #842029; border-radius: 8px; padding: 10px 14px; font-size: .88rem; display: none; margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -28,66 +69,81 @@
 <!-- LOCK SCREEN -->
 <div id="lock-screen" class="lock-card">
   <div class="lock-icon">🔒</div>
-  <h5 class="fw-bold mb-2">Acceso Restringido</h5>
-  <p class="text-muted mb-4" style="font-size:.9rem">Esta seccion es solo para personal autorizado.</p>
-  <input type="password" id="password-input" class="field-input" placeholder="Contrasena" onkeydown="if(event.key==='Enter') checkPassword()">
-  <div id="pass-error" class="error-msg">Contrasena incorrecta. Intenta de nuevo.</div>
-  <button class="btn-save mt-3" onclick="checkPassword()">Entrar</button>
+  <h5 class="fw-bold mb-1">Acceso Restringido</h5>
+  <p style="color:#888;font-size:.88rem;margin-bottom:20px">Solo personal autorizado.</p>
+  <input type="password" id="password-input" class="pass-input" placeholder="Contraseña" onkeydown="if(event.key==='Enter') checkPassword()">
+  <div id="pass-error" class="err-msg">Contraseña incorrecta.</div>
+  <button class="btn-save" onclick="checkPassword()">Entrar</button>
 </div>
 
-<!-- HEAT FORM -->
+<!-- MAIN SCREEN -->
 <div id="heat-screen" style="display:none">
-  <nav class="navbar navbar-dark" style="background:#1a2e4a">
-    <div class="container-fluid px-4">
-      <span class="navbar-brand">MetalTrack - Bitacora Heat Number</span>
-      <button class="btn btn-outline-light btn-sm" onclick="goBack()">Volver</button>
-    </div>
+  <nav>
+    <span>MetalTrack — Bitácora Heat</span>
+    <button onclick="goBack()">← Volver</button>
   </nav>
 
-  <div class="heat-card">
-    <div id="comp-info">
-      <div class="breadcrumb-heat" id="breadcrumb"></div>
+  <div class="wrap">
+
+    <!-- Component info -->
+    <div class="info-card">
+      <div class="breadcrumb-txt" id="breadcrumb"></div>
       <div class="comp-title" id="comp-name"></div>
     </div>
 
-    <div id="current-heat-box" class="current-heat" style="display:none">
-      <strong>Heat Number actual:</strong>
-      <span id="current-heat-value" style="color:#0d6efd;font-weight:700;margin-left:6px"></span>
+    <!-- Worker -->
+    <div class="info-card">
+      <label class="field-label">Tu nombre</label>
+      <div class="select-wrap">
+        <select id="worker-name" class="field-input">
+          <option value="">-- Selecciona tu nombre --</option>
+        </select>
+      </div>
     </div>
 
-    <label class="field-label">Nombre</label>
-    <input type="text" id="worker-name" class="field-input" placeholder="Tu nombre" value="Braulio">
+    <!-- Sub-components table -->
+    <div class="table-card">
+      <div class="table-title">Registro de Piezas</div>
 
-    <label class="field-label">Heat Number</label>
-    <input type="text" id="heat-number" class="field-input" placeholder="Ej: A1234, HN-567...">
+      <div class="col-headers">
+        <div class="col-header">Pieza</div>
+        <div class="col-header">Heat Number</div>
+        <div class="col-header"># PO</div>
+      </div>
 
-    <label class="field-label">Notas adicionales (opcional)</label>
-    <textarea id="heat-notes" class="field-input" rows="3" placeholder="Observaciones sobre el material..."></textarea>
+      <div id="rows-container"></div>
 
-    <button class="btn-save" onclick="saveHeat()">Guardar Heat Number</button>
-    <div class="success-msg" id="success-msg">Heat Number guardado correctamente</div>
-    <div class="error-msg" id="save-error"></div>
+      <div id="empty-msg" class="empty-msg">Sin piezas registradas. Agrega la primera.</div>
+
+      <button class="btn-add" onclick="addRow()">+ Agregar pieza</button>
+    </div>
+
+    <!-- Save -->
+    <button class="btn-save" id="btn-save" onclick="save()">Guardar Registro</button>
+
   </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-bar">
+  <div class="toast-inner" id="toast"></div>
 </div>
 
 <script>
 let componentId = null;
 
+/* ── AUTH ── */
 async function checkPassword() {
   const pass = document.getElementById('password-input').value;
   if (!pass) return;
-
   const r = await fetch('/api/auth/heat', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ password: pass })
   });
   const data = await r.json();
-
   if (data.ok) {
     sessionStorage.setItem('heat_auth', '1');
-    document.getElementById('lock-screen').style.display = 'none';
-    document.getElementById('heat-screen').style.display = 'block';
-    loadComponent();
+    showHeatScreen();
   } else {
     const err = document.getElementById('pass-error');
     err.style.display = 'block';
@@ -96,74 +152,128 @@ async function checkPassword() {
   }
 }
 
-async function loadComponent() {
+function showHeatScreen() {
+  document.getElementById('lock-screen').style.display = 'none';
+  document.getElementById('heat-screen').style.display = 'block';
+  loadData();
+}
+
+/* ── LOAD ── */
+async function loadData() {
   const params = new URLSearchParams(location.search);
   componentId = params.get('id');
+  if (!componentId) return;
 
-  if (!componentId) {
-    document.getElementById('comp-info').innerHTML = '<p class="text-muted">Sin componente especificado.</p>';
-    return;
-  }
+  const [c, workers] = await Promise.all([
+    fetch(`/api/components/${componentId}`).then(r => r.json()),
+    fetch('/api/workers').then(r => r.json())
+  ]);
 
-  const r = await fetch(`/api/components/${componentId}`);
-  if (!r.ok) { document.getElementById('comp-name').textContent = 'Componente no encontrado'; return; }
-  const c = await r.json();
-
-  document.getElementById('breadcrumb').textContent = `${c.project_name}  ${c.structure_name}`;
+  document.getElementById('breadcrumb').textContent = `${c.project_name}  →  ${c.structure_name}`;
   document.getElementById('comp-name').textContent = c.name;
 
-  if (c.heat_number) {
-    document.getElementById('current-heat-box').style.display = 'block';
-    document.getElementById('current-heat-value').textContent = c.heat_number;
-    document.getElementById('heat-number').value = c.heat_number;
+  // Populate worker dropdown
+  const sel = document.getElementById('worker-name');
+  sel.innerHTML = '<option value="">-- Selecciona tu nombre --</option>' +
+    workers.map(w => `<option value="${w.name}">${w.name}</option>`).join('');
+  const saved = localStorage.getItem('mt_worker_name');
+  if (saved) sel.value = saved;
+
+  // Load existing sub-components
+  const existing = c.sub_components || [];
+  if (existing.length) {
+    existing.forEach(s => addRow(s.name, s.heat_number, s.po));
   }
+  updateEmpty();
 }
 
-async function saveHeat() {
-  const heat = document.getElementById('heat-number').value.trim();
-  const notes = document.getElementById('heat-notes').value.trim();
-  const worker = document.getElementById('worker-name').value.trim() || 'Braulio';
+/* ── ROWS ── */
+function addRow(name = '', heat = '', po = '') {
+  const container = document.getElementById('rows-container');
+  const div = document.createElement('div');
+  div.className = 'piece-row';
+  div.innerHTML = `
+    <input class="piece-input" placeholder="Ej: Tubo A" value="${esc(name)}">
+    <input class="piece-input" placeholder="Ej: HN-1234" value="${esc(heat)}">
+    <input class="piece-input" placeholder="Ej: PO-567" value="${esc(po)}">
+    <button class="btn-del" onclick="removeRow(this)" title="Eliminar">×</button>
+  `;
+  container.appendChild(div);
+  updateEmpty();
+  // focus name field if new row
+  if (!name) div.querySelector('input').focus();
+}
 
-  if (!heat) {
-    document.getElementById('heat-number').focus();
+function removeRow(btn) {
+  btn.closest('.piece-row').remove();
+  updateEmpty();
+}
+
+function updateEmpty() {
+  const rows = document.querySelectorAll('.piece-row');
+  document.getElementById('empty-msg').style.display = rows.length ? 'none' : 'block';
+}
+
+function esc(s) {
+  return (s || '').replace(/"/g, '&quot;');
+}
+
+/* ── SAVE ── */
+async function save() {
+  const worker = document.getElementById('worker-name').value.trim();
+  if (!worker) {
+    document.getElementById('worker-name').focus();
+    toast('Selecciona tu nombre', '#dc3545');
     return;
   }
+  localStorage.setItem('mt_worker_name', worker);
 
-  const r = await fetch(`/api/components/${componentId}/heat`, {
+  const rows = [...document.querySelectorAll('.piece-row')];
+  const sub_components = rows.map(row => {
+    const inputs = row.querySelectorAll('input');
+    return { name: inputs[0].value.trim(), heat_number: inputs[1].value.trim(), po: inputs[2].value.trim() };
+  }).filter(s => s.name);
+
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+
+  const r = await fetch(`/api/components/${componentId}/subcomponents`, {
     method: 'PUT', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ heat_number: heat, notes, worker_name: worker })
+    body: JSON.stringify({ sub_components, worker_name: worker })
   });
   const data = await r.json();
+  btn.disabled = false;
 
   if (r.ok) {
-    document.getElementById('current-heat-box').style.display = 'block';
-    document.getElementById('current-heat-value').textContent = heat;
-    document.getElementById('heat-notes').value = '';
-    const msg = document.getElementById('success-msg');
-    msg.style.display = 'block';
-    setTimeout(() => { msg.style.display = 'none'; goBack(); }, 2000);
+    toast('Guardado correctamente ✓', '#198754');
+    setTimeout(() => goBack(), 1800);
   } else {
-    const err = document.getElementById('save-error');
-    err.textContent = data.error || 'Error al guardar';
-    err.style.display = 'block';
+    toast(data.error || 'Error al guardar', '#dc3545');
   }
 }
 
+/* ── HELPERS ── */
 function goBack() {
-  const params = new URLSearchParams(location.search);
-  const id = params.get('id');
+  const id = new URLSearchParams(location.search).get('id');
   if (id) window.location.href = `scan.html?id=${id}`;
   else history.back();
 }
 
-// Auto-check if already authenticated in this session
+function toast(msg, bg) {
+  const t = document.getElementById('toast');
+  t.style.background = bg || '#198754';
+  t.textContent = msg;
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 3000);
+}
+
+/* ── INIT ── */
 window.onload = () => {
   if (sessionStorage.getItem('heat_auth') === '1') {
-    document.getElementById('lock-screen').style.display = 'none';
-    document.getElementById('heat-screen').style.display = 'block';
-    loadComponent();
+    showHeatScreen();
+  } else {
+    document.getElementById('password-input').focus();
   }
-  document.getElementById('password-input').focus();
 };
 </script>
 </body>

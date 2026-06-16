@@ -218,17 +218,33 @@ function render(struct, tl, compDetails) {
       </tr>`;
     }).join('') : '';
 
-    // Heat number
-    const heatHtml = c.heat_number
-      ? `<span class="heat-badge">HN: ${c.heat_number}</span>`
-      : `<span class="no-heat">Sin heat number</span>`;
+    // Sub-components table
+    const subs = c.sub_components || [];
+    const heatHtml = subs.length
+      ? `<table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:.82rem">
+          <thead>
+            <tr style="background:#f0f4f8">
+              <th style="padding:5px 8px;text-align:left;border-radius:4px 0 0 4px;color:#555">Pieza</th>
+              <th style="padding:5px 8px;text-align:left;color:#555">Heat Number</th>
+              <th style="padding:5px 8px;text-align:left;border-radius:0 4px 4px 0;color:#555"># PO</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${subs.map(s => `<tr style="border-bottom:1px solid #f0f0f0">
+              <td style="padding:5px 8px;font-weight:600">${s.name}</td>
+              <td style="padding:5px 8px;color:#0d6efd;font-weight:700">${s.heat_number || '—'}</td>
+              <td style="padding:5px 8px;color:#555">${s.po || '—'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>`
+      : `<span class="no-heat">Sin piezas registradas</span>`;
 
     // Heat notes from history
     const heatNotes = (c.history || [])
       .filter(h => h.action === 'heat_update')
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
       .map(h => {
-        const note = h.notes.replace(/^Heat Number: [^|]+ \| ?/, '').trim();
+        const note = h.notes.replace(/^Piezas actualizadas:.*/, '').replace(/^Heat Number: [^|]+ \| ?/, '').trim();
         return note ? `<div class="heat-note">${fmtDate(h.timestamp)} — ${note}</div>` : '';
       }).filter(Boolean).join('');
 
