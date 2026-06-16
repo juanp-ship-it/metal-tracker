@@ -148,7 +148,7 @@ function render(struct, tl, compDetails) {
   document.getElementById('comp-count').textContent = struct.components.length + ' componentes';
 
   // Phase summary
-  const phaseSummaryHtml = tl.phaseSummary.map(p => {
+  const phaseSummaryHtml = (tl.phaseSummary || []).map(p => {
     const color = PHASE_COLORS[p.key] || '#333';
     const started = p.anyStarted;
     if (!started) {
@@ -178,7 +178,7 @@ function render(struct, tl, compDetails) {
 
   // Components
   const compMap = {};
-  tl.components.forEach(c => compMap[c.id] = c);
+  (tl.components || []).forEach(c => compMap[c.id] = c);
 
   const compHtml = compDetails.map(c => {
     const cfg = STATUS_CONFIG[c.status] || {};
