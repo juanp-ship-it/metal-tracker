@@ -29,9 +29,11 @@
     /* ACTION CARD */
     .action-card { background: white; border-radius: 14px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,.09); }
     .action-card label { font-weight: 600; margin-bottom: 6px; display: block; }
-    .name-input { width: 100%; padding: 13px 14px; font-size: 1rem; border: 2px solid #dee2e6; border-radius: 10px; outline: none; transition: border-color .2s; }
+    .name-input { width: 100%; padding: 13px 14px; font-size: 1rem; border: 2px solid #dee2e6; border-radius: 10px; outline: none; transition: border-color .2s; background: white; appearance: none; -webkit-appearance: none; cursor: pointer; }
     .name-input:focus { border-color: #0d6efd; }
     .name-input.error { border-color: #dc3545; }
+    .select-wrap { position: relative; }
+    .select-wrap::after { content: '▼'; position: absolute; right: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; font-size: .75rem; color: #888; }
 
     /* BUTTONS */
     .btn-action { width: 100%; padding: 15px; font-size: 1.05rem; font-weight: 700; border: none; border-radius: 12px; cursor: pointer; margin-top: 12px; transition: opacity .15s; }
@@ -101,16 +103,22 @@
     <!-- WORKER FLOW: one-tap start -->
     <div id="worker-flow" style="display:none" class="action-card">
       <label>Tu nombre</label>
-      <input type="text" id="worker-name" class="name-input" placeholder="Escribe tu nombre" list="workers-list" autocomplete="off">
-      <datalist id="workers-list"></datalist>
+      <div class="select-wrap">
+        <select id="worker-name" class="name-input">
+          <option value="">-- Selecciona tu nombre --</option>
+        </select>
+      </div>
       <div id="worker-btn-container"></div>
     </div>
 
     <!-- QC FLOW: approve / reject -->
     <div id="qc-flow" style="display:none" class="action-card">
       <label>Tu nombre (QC)</label>
-      <input type="text" id="qc-name" class="name-input" placeholder="Escribe tu nombre" list="workers-list-qc" autocomplete="off">
-      <datalist id="workers-list-qc"></datalist>
+      <div class="select-wrap">
+        <select id="qc-name" class="name-input">
+          <option value="">-- Selecciona tu nombre --</option>
+        </select>
+      </div>
       <div id="qc-btn-container"></div>
       <div id="qc-notes-section" style="display:none">
         <textarea id="qc-notes" class="notes-box" placeholder="Describe qué necesita corrección..."></textarea>
@@ -122,8 +130,11 @@
     <!-- GALVANIZING FLOW -->
     <div id="galv-flow" style="display:none" class="action-card">
       <label>Tu nombre</label>
-      <input type="text" id="galv-name" class="name-input" placeholder="Escribe tu nombre" list="workers-list-galv" autocomplete="off">
-      <datalist id="workers-list-galv"></datalist>
+      <div class="select-wrap">
+        <select id="galv-name" class="name-input">
+          <option value="">-- Selecciona tu nombre --</option>
+        </select>
+      </div>
       <div id="galv-btn-container"></div>
     </div>
 
@@ -201,12 +212,13 @@ async function init() {
     STATUS_NEXT   = info.STATUS_NEXT;
 
     const workers = await fetch('/api/workers').then(r => r.json());
-    const opts = workers.map(w => `<option value="${w.name}">`).join('');
-    ['workers-list','workers-list-qc','workers-list-galv'].forEach(id => {
-      document.getElementById(id).innerHTML = opts;
+    const opts = workers.map(w => `<option value="${w.name}">${w.name}</option>`).join('');
+    ['worker-name','qc-name','galv-name'].forEach(id => {
+      const sel = document.getElementById(id);
+      sel.innerHTML = '<option value="">-- Selecciona tu nombre --</option>' + opts;
     });
 
-    // Pre-fill saved name
+    // Restore last used name
     const saved = localStorage.getItem('mt_worker_name');
     if (saved) ['worker-name','qc-name','galv-name'].forEach(id => document.getElementById(id).value = saved);
 
