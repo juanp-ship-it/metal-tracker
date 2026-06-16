@@ -21,6 +21,8 @@ const LOCAL_IP = getLocalIP();
 const BASE_URL = process.env.BASE_URL || `http://${LOCAL_IP}:${PORT}`;
 
 // ── MONGOOSE SCHEMAS ──────────────────────────────────────────────────────────
+const opts = { id: false };
+
 const counterSchema = new mongoose.Schema({ _id: String, seq: { type: Number, default: 0 } });
 const Counter = mongoose.model('Counter', counterSchema);
 
@@ -29,19 +31,19 @@ async function nextId(name) {
   return doc.seq;
 }
 
-const projectSchema = new mongoose.Schema({ id: Number, name: String, description: String, client: String, created_at: String });
+const projectSchema = new mongoose.Schema({ id: Number, name: String, description: String, client: String, created_at: String }, opts);
 const Project = mongoose.model('Project', projectSchema);
 
-const structureSchema = new mongoose.Schema({ id: Number, project_id: Number, name: String, description: String, created_at: String });
+const structureSchema = new mongoose.Schema({ id: Number, project_id: Number, name: String, description: String, created_at: String }, opts);
 const Structure = mongoose.model('Structure', structureSchema);
 
-const componentSchema = new mongoose.Schema({ id: Number, structure_id: Number, name: String, description: String, status: String, created_at: String, heat_number: String });
+const componentSchema = new mongoose.Schema({ id: Number, structure_id: Number, name: String, description: String, status: String, created_at: String, heat_number: String }, opts);
 const Component = mongoose.model('Component', componentSchema);
 
-const historySchema = new mongoose.Schema({ id: Number, component_id: Number, action: String, worker_name: String, notes: String, from_status: String, to_status: String, timestamp: String });
+const historySchema = new mongoose.Schema({ id: Number, component_id: Number, action: String, worker_name: String, notes: String, from_status: String, to_status: String, timestamp: String }, opts);
 const History = mongoose.model('History', historySchema);
 
-const workerSchema = new mongoose.Schema({ id: Number, name: String, role: String });
+const workerSchema = new mongoose.Schema({ id: Number, name: String, role: String }, opts);
 const Worker = mongoose.model('Worker', workerSchema);
 
 function now() {
