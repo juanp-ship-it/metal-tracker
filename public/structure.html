@@ -173,6 +173,9 @@ function render(struct, tl, compDetails) {
   }).join('');
   document.getElementById('phase-summary').innerHTML = phaseSummaryHtml;
 
+  // DEBUG
+  document.getElementById('phase-summary').innerHTML += `<pre style="font-size:.7rem;color:#666">tl.phaseSummary: ${JSON.stringify(tl.phaseSummary?.length)} items | tl.components: ${JSON.stringify(tl.components?.length)} | compDetails: ${compDetails.length}</pre>`;
+
   // Components
   const compMap = {};
   tl.components.forEach(c => compMap[c.id] = c);
