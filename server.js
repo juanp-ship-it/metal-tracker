@@ -255,7 +255,7 @@ app.get('/api/components', async (req, res) => {
     let filter = {};
     if (structure_id) filter.structure_id = parseInt(structure_id);
     else if (project_id) {
-      const sIds = (await Structure.find().lean() })).map(s => s.id);
+      const sIds = (await Structure.find({ project_id: parseInt(project_id) }).lean()).map(s => s.id);
       filter.structure_id = { $in: sIds };
     }
     const comps = await Component.find().lean();
@@ -352,7 +352,8 @@ app.post('/api/components/:id/action', async (req, res) => {
     const hid = await nextId('history');
     await History.create({ id: hid, component_id: id, action, worker_name: worker_name.trim(), notes: notes?.trim()||'', from_status: c.status, to_status, timestamp: now() });
 
-    const existing = await Worker.findOne().lean()}$`, 'i') });
+    const wname = worker_name.trim();
+    const existing = await Worker.findOne({ name: { $regex: `^${wname}$`, $options: 'i' } }).lean();
     if (!existing) {
       const wid = await nextId('worker');
       await Worker.create({ id: wid, name: worker_name.trim(), role: 'worker' });
@@ -509,7 +510,8 @@ app.post('/api/workers', async (req, res) => {
   try {
     const { name, role } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'Nombre requerido' });
-    const existing = await Worker.findOne().lean()}$`, 'i') });
+    const wname2 = name.trim();
+    const existing = await Worker.findOne({ name: { $regex: `^${wname2}$`, $options: 'i' } }).lean();
     if (existing) return res.status(400).json({ error: 'Ya existe un trabajador con ese nombre' });
     const id = await nextId('worker');
     const worker = await Worker.create({ id, name: name.trim(), role: role||'worker' });
