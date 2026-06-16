@@ -97,6 +97,16 @@ const STATUS_NEXT = {
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ── DEBUG ─────────────────────────────────────────────────────────────────────
+app.get('/api/debug/structure/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+  const s = await Structure.findOne({ id });
+  const compsById = await Component.find({ structure_id: id });
+  const compsByStr = await Component.find({ structure_id: String(id) });
+  const allComps = await Component.find({}).limit(5);
+  res.json({ structure: s, compsById, compsByStr, sampleComps: allComps.map(c => ({ id: c.id, structure_id: c.structure_id, type: typeof c.structure_id })) });
+});
+
 // ── AUTH ──────────────────────────────────────────────────────────────────────
 const HEAT_PASSWORD = process.env.HEAT_PASSWORD || 'braulio2024';
 
