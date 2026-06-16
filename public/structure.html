@@ -128,7 +128,13 @@ async function init() {
     )
   );
 
-  render(struct, tl, compDetails);
+  try {
+    render(struct, tl, compDetails);
+  } catch(e) {
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('loading').innerHTML = `<p class="text-danger">Error al renderizar: ${e.message}</p>`;
+    document.getElementById('main').style.display = 'none';
+  }
 }
 
 function render(struct, tl, compDetails) {
