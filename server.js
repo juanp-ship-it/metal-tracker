@@ -102,15 +102,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // ── DEBUG ─────────────────────────────────────────────────────────────────────
 
-// ── DEBUG ─────────────────────────────────────────────────────────────────────
-app.get('/api/debug/timeline/:id', async (req, res) => {
-  const id = parseInt(req.params.id);
-  const components = await Component.find({ structure_id: id }).lean();
-  const compIds = components.map(c => c.id);
-  const history = await History.find({ component_id: { $in: compIds } }).lean();
-  const allHistory = await History.find({}).limit(5).lean();
-  res.json({ compIds, historyCount: history.length, sampleHistory: allHistory.map(h => ({ id: h.id, component_id: h.component_id, action: h.action, type: typeof h.component_id })) });
-});
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
 const HEAT_PASSWORD = process.env.HEAT_PASSWORD || 'braulio2024';
