@@ -77,8 +77,8 @@
 <script>
 let STATUS_CONFIG = {};
 
-const PHASE_NAMES  = { assembly:'Armado', welding:'Soldadura', galvanizing:'Galvanizado', final:'Insp. Final' };
-const PHASE_COLORS = { assembly:'#0d6efd', welding:'#fd7e14', galvanizing:'#6f42c1', final:'#198754' };
+const PHASE_NAMES  = { fabrication:'Fabricación', galvanizing:'Galvanizado', final:'Insp. Final' };
+const PHASE_COLORS = { fabrication:'#0d6efd', galvanizing:'#6f42c1', final:'#198754' };
 
 function fmtDuration(ms) {
   if (!ms || ms < 0) return '';

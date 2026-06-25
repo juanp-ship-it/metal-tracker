@@ -196,8 +196,8 @@ let pendingQCAction = null;
 let componentId = null;
 
 // Worker actions = just execute and close. QC actions = approve/reject flow. Galv = execute and close.
-const WORKER_ACTIONS = ['start_assembly', 'restart_assembly', 'start_welding', 'restart_welding', 'restart_final'];
-const QC_ACTIONS     = ['approve_assembly', 'reject_assembly', 'approve_welding', 'reject_welding', 'approve_final', 'reject_final'];
+const WORKER_ACTIONS = ['start_fabrication', 'restart_fabrication', 'restart_final'];
+const QC_ACTIONS     = ['approve_fabrication', 'reject_fabrication', 'approve_final', 'reject_final'];
 const GALV_ACTIONS   = ['send_to_galvanizing', 'mark_galvanized'];
 
 async function init() {
@@ -519,7 +519,7 @@ function renderTimeline(timeline) {
 
   const ICONS = { completed: '', in_progress: '', rejected: '', pending: '' };
   const COLORS = { completed: '#198754', in_progress: '#0d6efd', rejected: '#dc3545', pending: '#aaa' };
-  const PHASE_ICONS = { assembly: '', welding: '', galvanizing: 'ï' };
+  const PHASE_ICONS = { fabrication: '', galvanizing: 'ï', final: '' };
 
   document.getElementById('timeline-list').innerHTML = timeline.map(p => {
     if (p.status === 'pending') return ''; // don't show future phases

@@ -54,19 +54,29 @@ function now() {
 // ── STATUS CONFIG ─────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
   pending:              { label: 'Pendiente',            color: '#6c757d', bg: '#f8f9fa'  },
-  assembly_in_progress: { label: 'Armando',              color: '#0d6efd', bg: '#e7f0ff'  },
-  assembly_rejected:    { label: 'Armado Rechazado',     color: '#dc3545', bg: '#fde8ea'  },
-  assembly_approved:    { label: 'Listo para Soldar',    color: '#0dcaf0', bg: '#e0f7fa'  },
-  welding_in_progress:  { label: 'Soldando',             color: '#fd7e14', bg: '#fff3e0'  },
-  welding_rejected:     { label: 'Soldadura Rechazada',  color: '#dc3545', bg: '#fde8ea'  },
-  welding_approved:     { label: 'Listo p/ Galvanizar',  color: '#ffc107', bg: '#fff8e1'  },
+  fab_in_progress:      { label: 'En Fabricación',       color: '#0d6efd', bg: '#e7f0ff'  },
+  fab_rejected:         { label: 'Fabricación Rechazada',color: '#dc3545', bg: '#fde8ea'  },
+  fab_approved:         { label: 'Listo p/ Galvanizar',  color: '#ffc107', bg: '#fff8e1'  },
   galvanizing:          { label: 'En Galvanizado',       color: '#6f42c1', bg: '#f3effe'  },
   galvanized:           { label: 'Listo p/ Insp. Final', color: '#0dcaf0', bg: '#e0f7fa'  },
   final_rejected:       { label: 'Insp. Final Rechazada',color: '#dc3545', bg: '#fde8ea'  },
   completed:            { label: 'Completado',           color: '#0f5132', bg: '#d1e7dd'  },
+  // Legacy statuses (kept for history display)
+  assembly_in_progress: { label: 'Armando',              color: '#0d6efd', bg: '#e7f0ff'  },
+  assembly_rejected:    { label: 'Armado Rechazado',     color: '#dc3545', bg: '#fde8ea'  },
+  assembly_approved:    { label: 'Armado Aprobado',      color: '#0dcaf0', bg: '#e0f7fa'  },
+  welding_in_progress:  { label: 'Soldando',             color: '#fd7e14', bg: '#fff3e0'  },
+  welding_rejected:     { label: 'Soldadura Rechazada',  color: '#dc3545', bg: '#fde8ea'  },
+  welding_approved:     { label: 'Listo p/ Galvanizar',  color: '#ffc107', bg: '#fff8e1'  },
 };
 
 const ACTION_CONFIG = {
+  // New combined fabrication actions
+  start_fabrication:   { label: 'Iniciar Fabricación',          to_status: 'fab_in_progress',      btn: 'primary',  requires_notes: false },
+  approve_fabrication: { label: 'Aprobar Fabricación',          to_status: 'fab_approved',          btn: 'success',  requires_notes: false },
+  reject_fabrication:  { label: 'Rechazar Fabricación',         to_status: 'fab_rejected',          btn: 'danger',   requires_notes: true  },
+  restart_fabrication: { label: 'Reiniciar Fabricación',        to_status: 'fab_in_progress',      btn: 'warning',  requires_notes: false },
+  // Legacy actions (kept for history display)
   start_assembly:      { label: 'Iniciar Armado',               to_status: 'assembly_in_progress', btn: 'primary',  requires_notes: false },
   approve_assembly:    { label: 'Aprobar Armado',               to_status: 'assembly_approved',    btn: 'success',  requires_notes: false },
   reject_assembly:     { label: 'Rechazar Armado',              to_status: 'assembly_rejected',    btn: 'danger',   requires_notes: true  },
@@ -79,16 +89,21 @@ const ACTION_CONFIG = {
   mark_galvanized:     { label: 'Marcar Galvanizado',           to_status: 'galvanized',           btn: 'success',  requires_notes: false },
   approve_final:       { label: 'Aprobar Inspeccion Final',     to_status: 'completed',            btn: 'success',  requires_notes: false },
   reject_final:        { label: 'Rechazar Inspeccion Final',    to_status: 'final_rejected',       btn: 'danger',   requires_notes: true  },
-  restart_final:       { label: 'Reiniciar para Inspeccion',   to_status: 'galvanized',           btn: 'warning',  requires_notes: false },
+  restart_final:       { label: 'Reiniciar para Inspeccion',    to_status: 'galvanized',           btn: 'warning',  requires_notes: false },
 };
 
 const STATUS_NEXT = {
-  pending:              ['start_assembly'],
-  assembly_in_progress: ['approve_assembly', 'reject_assembly'],
-  assembly_rejected:    ['restart_assembly'],
-  assembly_approved:    ['start_welding'],
-  welding_in_progress:  ['approve_welding', 'reject_welding'],
-  welding_rejected:     ['restart_welding'],
+  // New flow
+  pending:              ['start_fabrication'],
+  fab_in_progress:      ['approve_fabrication', 'reject_fabrication'],
+  fab_rejected:         ['restart_fabrication'],
+  fab_approved:         ['send_to_galvanizing'],
+  // Legacy statuses → new actions so old components keep moving forward
+  assembly_in_progress: ['approve_fabrication', 'reject_fabrication'],
+  assembly_rejected:    ['restart_fabrication'],
+  assembly_approved:    ['approve_fabrication', 'reject_fabrication'],
+  welding_in_progress:  ['approve_fabrication', 'reject_fabrication'],
+  welding_rejected:     ['restart_fabrication'],
   welding_approved:     ['send_to_galvanizing'],
   galvanizing:          ['mark_galvanized'],
   galvanized:           ['approve_final', 'reject_final'],
@@ -427,16 +442,30 @@ function buildComponentTimeline(history) {
   const sorted = [...history].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
   const PHASES = [
-    { key: 'assembly',    name: 'Armado',           start: 'start_assembly',      restart: 'restart_assembly', approve: 'approve_assembly', reject: 'reject_assembly' },
-    { key: 'welding',     name: 'Soldadura',         start: 'start_welding',       restart: 'restart_welding',  approve: 'approve_welding',  reject: 'reject_welding'  },
-    { key: 'galvanizing', name: 'Galvanizado',       start: 'send_to_galvanizing', restart: null,               approve: 'mark_galvanized',  reject: null              },
-    { key: 'final',       name: 'Inspeccion Final',  start: 'approve_final',       restart: 'restart_final',    approve: 'approve_final',    reject: 'reject_final'    },
+    {
+      key: 'fabrication', name: 'Fabricación',
+      starts:   ['start_fabrication', 'restart_fabrication', 'start_assembly', 'restart_assembly', 'start_welding', 'restart_welding'],
+      approves: ['approve_fabrication', 'approve_welding'],
+      rejects:  ['reject_fabrication', 'reject_assembly', 'reject_welding'],
+    },
+    {
+      key: 'galvanizing', name: 'Galvanizado',
+      starts:   ['send_to_galvanizing'],
+      approves: ['mark_galvanized'],
+      rejects:  [],
+    },
+    {
+      key: 'final', name: 'Inspeccion Final',
+      starts:   ['approve_final'],
+      approves: ['approve_final'],
+      rejects:  ['reject_final'],
+    },
   ];
 
   return PHASES.map(phase => {
-    const starts    = sorted.filter(h => h.action === phase.start || h.action === phase.restart);
-    const approvals = sorted.filter(h => h.action === phase.approve);
-    const rejects   = sorted.filter(h => h.action === phase.reject);
+    const starts    = sorted.filter(h => phase.starts.includes(h.action));
+    const approvals = sorted.filter(h => phase.approves.includes(h.action));
+    const rejects   = sorted.filter(h => phase.rejects.includes(h.action));
 
     if (!starts.length) return { ...phase, status: 'pending', started_at: null, completed_at: null, duration_ms: null, attempts: 0, worker: null, qc_worker: null };
 
@@ -474,7 +503,7 @@ app.get('/api/structures/:id/timeline', async (req, res) => {
       return { id: c.id, name: c.name, status: c.status, timeline: buildComponentTimeline(history) };
     }));
 
-    const PHASE_KEYS = ['assembly', 'welding', 'galvanizing'];
+    const PHASE_KEYS = ['fabrication', 'galvanizing', 'final'];
     const phaseSummary = PHASE_KEYS.map(key => {
       const phasesForKey = result.map(c => c.timeline.find(p => p.key === key)).filter(Boolean);
       const started = phasesForKey.filter(p => p.started_at).map(p => new Date(p.started_at));
