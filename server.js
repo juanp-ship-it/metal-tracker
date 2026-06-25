@@ -51,6 +51,16 @@ function now() {
   return new Date().toLocaleString('es-CO', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(',', '');
 }
 
+function parseTS(ts) {
+  if (!ts) return null;
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(ts)) {
+    const [datePart, timePart] = ts.split(' ');
+    const [day, month, year] = datePart.split('/');
+    return new Date(`${year}-${month}-${day}T${timePart || '00:00:00'}`);
+  }
+  return new Date(ts);
+}
+
 // ── STATUS CONFIG ─────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
   pending:              { label: 'Pendiente',            color: '#6c757d', bg: '#f8f9fa'  },
@@ -439,7 +449,7 @@ app.post('/api/components/:id/undo', async (req, res) => {
 
 // ── TIMELINE ──────────────────────────────────────────────────────────────────
 function buildComponentTimeline(history) {
-  const sorted = [...history].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  const sorted = [...history].sort((a, b) => parseTS(a.timestamp) - parseTS(b.timestamp));
 
   const PHASES = [
     {
@@ -477,7 +487,7 @@ function buildComponentTimeline(history) {
     if (lastApproval) status = 'completed';
     else if (rejects.length) status = 'rejected';
 
-    const duration_ms = lastApproval ? new Date(lastApproval.timestamp) - new Date(firstStart.timestamp) : null;
+    const duration_ms = lastApproval ? parseTS(lastApproval.timestamp) - parseTS(firstStart.timestamp) : null;
 
     return {
       ...phase, status,
@@ -506,8 +516,8 @@ app.get('/api/structures/:id/timeline', async (req, res) => {
     const PHASE_KEYS = ['fabrication', 'galvanizing', 'final'];
     const phaseSummary = PHASE_KEYS.map(key => {
       const phasesForKey = result.map(c => c.timeline.find(p => p.key === key)).filter(Boolean);
-      const started = phasesForKey.filter(p => p.started_at).map(p => new Date(p.started_at));
-      const completed = phasesForKey.filter(p => p.completed_at).map(p => new Date(p.completed_at));
+      const started = phasesForKey.filter(p => p.started_at).map(p => parseTS(p.started_at)).filter(d => d && !isNaN(d));
+      const completed = phasesForKey.filter(p => p.completed_at).map(p => parseTS(p.completed_at)).filter(d => d && !isNaN(d));
       const allDone = phasesForKey.length > 0 && phasesForKey.every(p => p.status === 'completed');
       const anyStarted = started.length > 0;
       const firstStart = anyStarted ? new Date(Math.min(...started)).toISOString().replace('T',' ').slice(0,19) : null;
