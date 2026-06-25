@@ -445,7 +445,7 @@ function buildComponentTimeline(history) {
     {
       key: 'fabrication', name: 'Fabricación',
       starts:   ['start_fabrication', 'restart_fabrication', 'start_assembly', 'restart_assembly', 'start_welding', 'restart_welding'],
-      approves: ['approve_fabrication', 'approve_welding'],
+      approves: ['approve_fabrication', 'approve_assembly', 'approve_welding'],
       rejects:  ['reject_fabrication', 'reject_assembly', 'reject_welding'],
     },
     {
