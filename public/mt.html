@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>MetalTrack - Registro MT</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body { background: #f0f4f8; font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; }
+
+    /* LOCK */
+    .lock-card { max-width: 360px; margin: 80px auto; background: white; border-radius: 16px; padding: 36px 28px; box-shadow: 0 4px 20px rgba(0,0,0,.10); text-align: center; }
+    .lock-icon { font-size: 3rem; margin-bottom: 12px; }
+    .pass-input { width: 100%; padding: 12px 14px; border: 2px solid #dee2e6; border-radius: 10px; font-size: 1rem; margin-bottom: 12px; outline: none; text-align: center; letter-spacing: .1em; }
+    .pass-input:focus { border-color: #6f42c1; }
+    .err-msg { background: #fde8ea; color: #842029; border-radius: 8px; padding: 10px 14px; font-size: .88rem; display: none; margin-top: 8px; }
+
+    /* NAV */
+    nav { background: #2d1b5e; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+    nav span { color: white; font-weight: 700; font-size: 1rem; }
+    nav button { background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3); color: white; border-radius: 8px; padding: 6px 14px; font-size: .85rem; cursor: pointer; }
+
+    .wrap { max-width: 520px; margin: 0 auto; padding: 16px; }
+
+    /* INFO CARD */
+    .info-card { background: white; border-radius: 14px; padding: 18px; box-shadow: 0 2px 10px rgba(0,0,0,.08); margin-bottom: 14px; }
+    .breadcrumb-txt { font-size: .78rem; color: #999; margin-bottom: 2px; }
+    .comp-title { font-size: 1.4rem; font-weight: 700; color: #2d1b5e; }
+
+    /* FORM */
+    .form-card { background: white; border-radius: 14px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,.08); margin-bottom: 14px; }
+    .field-label { font-weight: 600; font-size: .9rem; margin-bottom: 5px; display: block; color: #333; }
+    .field-input { width: 100%; padding: 11px 14px; border: 2px solid #dee2e6; border-radius: 10px; font-size: 1rem; font-family: inherit; outline: none; transition: border-color .2s; background: white; }
+    .field-input:focus { border-color: #6f42c1; }
+    .select-wrap { position: relative; margin-bottom: 14px; }
+    .select-wrap::after { content: '▼'; position: absolute; right: 14px; top: 50%; transform: translateY(-50%); pointer-events: none; font-size: .72rem; color: #888; }
+    select.field-input { appearance: none; -webkit-appearance: none; cursor: pointer; }
+    .desc-input { margin-bottom: 14px; }
+
+    .btn-ok { width: 100%; padding: 14px; background: #6f42c1; color: white; border: none; border-radius: 12px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: opacity .15s; }
+    .btn-ok:active { opacity: .8; }
+    .btn-ok:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* RECORDS */
+    .records-card { background: white; border-radius: 14px; padding: 18px; box-shadow: 0 2px 10px rgba(0,0,0,.08); margin-bottom: 14px; }
+    .records-title { font-weight: 700; font-size: .95rem; color: #2d1b5e; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
+    .mt-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+    .mt-row:last-child { border-bottom: none; }
+    .mt-ok-badge { background: #d1e7dd; color: #0f5132; font-weight: 700; font-size: .8rem; padding: 3px 10px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
+    .mt-desc { font-size: .92rem; font-weight: 600; color: #222; flex: 1; }
+    .mt-meta { font-size: .75rem; color: #999; margin-top: 2px; }
+    .btn-del-mt { background: none; border: none; color: #dc3545; font-size: 1.1rem; cursor: pointer; padding: 2px 6px; border-radius: 6px; flex-shrink: 0; }
+    .btn-del-mt:hover { background: #fde8ea; }
+    .empty-records { text-align: center; color: #bbb; font-size: .88rem; padding: 16px 0; }
+
+    /* LOCK BTN */
+    .btn-lock { width: 100%; padding: 14px; background: #2d1b5e; color: white; border: none; border-radius: 12px; font-size: 1rem; font-weight: 700; cursor: pointer; }
+
+    /* Toast */
+    .toast-bar { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; min-width: 240px; text-align: center; }
+    .toast-inner { display: none; padding: 12px 20px; border-radius: 10px; font-weight: 600; color: white; font-size: .95rem; }
+  </style>
+</head>
+<body>
+
+<!-- LOCK SCREEN -->
+<div id="lock-screen" class="lock-card">
+  <div class="lock-icon">🔬</div>
+  <h5 class="fw-bold mb-1">Registro MT</h5>
+  <p style="color:#888;font-size:.88rem;margin-bottom:20px">Acceso restringido — Osiel Horta</p>
+  <input type="password" id="password-input" class="pass-input" placeholder="Contraseña"
+    onkeydown="if(event.key==='Enter') checkPassword()">
+  <div id="pass-error" class="err-msg">Contraseña incorrecta.</div>
+  <button class="btn-lock mt-3" onclick="checkPassword()">Entrar</button>
+</div>
+
+<!-- MAIN SCREEN -->
+<div id="mt-screen" style="display:none">
+  <nav>
+    <span>MetalTrack — Registro MT</span>
+    <button onclick="goBack()">← Volver</button>
+  </nav>
+
+  <div class="wrap">
+
+    <div class="info-card">
+      <div class="breadcrumb-txt" id="breadcrumb"></div>
+      <div class="comp-title" id="comp-name"></div>
+    </div>
+
+    <!-- New MT form -->
+    <div class="form-card">
+      <div style="font-weight:700;font-size:.95rem;color:#2d1b5e;margin-bottom:14px">Registrar Soldadura MT</div>
+
+      <label class="field-label">Inspector</label>
+      <div class="select-wrap">
+        <select id="worker-name" class="field-input">
+          <option value="Osiel Horta">Osiel Horta</option>
+        </select>
+      </div>
+
+      <label class="field-label">Descripción de la soldadura</label>
+      <input type="text" id="mt-desc" class="field-input desc-input"
+        placeholder="Ej: Plate con Tubo principal, Chord A con Angular 3...">
+
+      <button class="btn-ok" id="btn-ok" onclick="registerMT()">✓ Registrar OK</button>
+    </div>
+
+    <!-- Existing records -->
+    <div class="records-card">
+      <div class="records-title">
+        <span>Registros MT</span>
+        <span id="mt-count" style="background:#6f42c1;color:white;border-radius:20px;padding:2px 10px;font-size:.78rem"></span>
+      </div>
+      <div id="mt-list"><div class="empty-records">Sin registros MT para este componente.</div></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast-bar"><div class="toast-inner" id="toast"></div></div>
+
+<script>
+let componentId = null;
+let records = [];
+
+async function checkPassword() {
+  const pass = document.getElementById('password-input').value;
+  if (!pass) return;
+  const r = await fetch('/api/auth/mt', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: pass })
+  });
+  const data = await r.json();
+  if (data.ok) {
+    sessionStorage.setItem('mt_auth', '1');
+    showMTScreen();
+  } else {
+    const err = document.getElementById('pass-error');
+    err.style.display = 'block';
+    document.getElementById('password-input').value = '';
+    setTimeout(() => err.style.display = 'none', 3000);
+  }
+}
+
+function showMTScreen() {
+  document.getElementById('lock-screen').style.display = 'none';
+  document.getElementById('mt-screen').style.display = 'block';
+  loadData();
+}
+
+async function loadData() {
+  const params = new URLSearchParams(location.search);
+  componentId = params.get('id');
+  if (!componentId) return;
+
+  const c = await fetch(`/api/components/${componentId}`).then(r => r.json());
+  document.getElementById('breadcrumb').textContent = `${c.project_name}  →  ${c.structure_name}`;
+  document.getElementById('comp-name').textContent = c.name;
+
+  records = c.mt_records || [];
+  renderRecords();
+}
+
+async function registerMT() {
+  const desc = document.getElementById('mt-desc').value.trim();
+  const worker = document.getElementById('worker-name').value.trim();
+  if (!desc) { document.getElementById('mt-desc').focus(); toast('Describe la soldadura', '#dc3545'); return; }
+
+  const btn = document.getElementById('btn-ok');
+  btn.disabled = true;
+
+  const r = await fetch(`/api/components/${componentId}/mt`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ description: desc, worker })
+  });
+  const data = await r.json();
+  btn.disabled = false;
+
+  if (r.ok) {
+    records.push(data.record);
+    renderRecords();
+    document.getElementById('mt-desc').value = '';
+    document.getElementById('mt-desc').focus();
+    toast('Registrado OK ✓', '#6f42c1');
+  } else {
+    toast(data.error || 'Error', '#dc3545');
+  }
+}
+
+async function deleteRecord(idx) {
+  const r = await fetch(`/api/components/${componentId}/mt/${idx}`, { method: 'DELETE' });
+  if (r.ok) {
+    records.splice(idx, 1);
+    renderRecords();
+  }
+}
+
+function renderRecords() {
+  const list = document.getElementById('mt-list');
+  const count = document.getElementById('mt-count');
+  count.textContent = records.length;
+
+  if (!records.length) {
+    list.innerHTML = '<div class="empty-records">Sin registros MT para este componente.</div>';
+    return;
+  }
+
+  list.innerHTML = records.map((r, i) => `
+    <div class="mt-row">
+      <span class="mt-ok-badge">✓ OK</span>
+      <div style="flex:1">
+        <div class="mt-desc">${r.description}</div>
+        <div class="mt-meta">${r.worker} · ${fmtDate(r.timestamp)}</div>
+      </div>
+      <button class="btn-del-mt" onclick="deleteRecord(${i})" title="Eliminar">×</button>
+    </div>
+  `).join('');
+}
+
+function fmtDate(ts) {
+  if (!ts) return '';
+  let d;
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(ts)) {
+    const [datePart, timePart] = ts.split(' ');
+    const [day, month, year] = datePart.split('/');
+    d = new Date(`${year}-${month}-${day}T${timePart || '00:00:00'}`);
+  } else {
+    d = new Date(ts);
+  }
+  if (isNaN(d)) return ts;
+  return d.toLocaleString('es-DO', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function goBack() {
+  const id = new URLSearchParams(location.search).get('id');
+  if (id) window.location.href = `scan.html?id=${id}`;
+  else history.back();
+}
+
+function toast(msg, bg) {
+  const t = document.getElementById('toast');
+  t.style.background = bg || '#6f42c1';
+  t.textContent = msg;
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 2500);
+}
+
+window.onload = () => {
+  if (sessionStorage.getItem('mt_auth') === '1') {
+    showMTScreen();
+  } else {
+    document.getElementById('password-input').focus();
+  }
+};
+</script>
+</body>
+</html>

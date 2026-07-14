@@ -158,9 +158,16 @@
     </div>
 
     <!-- HEAT NUMBER BUTTON -->
-    <div id="heat-section" style="display:none;margin-bottom:12px">
+    <div id="heat-section" style="display:none;margin-bottom:8px">
       <button class="btn-action btn-secondary-action" onclick="openHeat()" style="background:#1a2e4a">
-        Bitacora Heat Number (Autorizado)
+        Bitácora Heat Number (Braulio)
+      </button>
+    </div>
+
+    <!-- MT BUTTON -->
+    <div style="margin-bottom:12px">
+      <button class="btn-action" onclick="openMT()" style="background:#2d1b5e;color:white">
+        🔬 Registro MT (Osiel Horta)
       </button>
     </div>
 
@@ -295,6 +302,9 @@ function render() {
 
 function openHeat() {
   window.location.href = `heat.html?id=${componentId}`;
+}
+function openMT() {
+  window.location.href = `mt.html?id=${componentId}`;
 }
 
 function renderWorkerFlow(actions) {

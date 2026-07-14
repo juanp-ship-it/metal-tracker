@@ -277,7 +277,18 @@ function render(struct, tl, compDetails) {
       ${heatNotes ? `<div class="mb-2">${heatNotes}</div>` : ''}
       ${rejectionNotes ? `<div class="mb-2">${rejectionNotes}</div>` : ''}
 
-      <div class="text-end">
+      ${(c.mt_records || []).length ? `
+      <div style="margin-top:8px">
+        <div style="font-size:.78rem;font-weight:700;color:#6f42c1;margin-bottom:6px">🔬 Registros MT</div>
+        ${(c.mt_records || []).map(m => `
+          <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f5f0ff;font-size:.82rem">
+            <span style="background:#d1e7dd;color:#0f5132;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap">✓ OK</span>
+            <span style="flex:1;font-weight:600">${m.description}</span>
+            <span style="color:#999;white-space:nowrap">${fmtDate(m.timestamp)}</span>
+          </div>`).join('')}
+      </div>` : ''}
+
+      <div class="text-end mt-2">
         <a href="scan.html?id=${c.id}" class="btn btn-sm btn-outline-primary">Ver / Escanear</a>
       </div>
     </div>`;

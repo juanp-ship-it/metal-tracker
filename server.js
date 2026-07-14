@@ -38,7 +38,7 @@ const Project = mongoose.model('Project', projectSchema);
 const structureSchema = new mongoose.Schema({ id: Number, project_id: Number, name: String, description: String, created_at: String }, opts);
 const Structure = mongoose.model('Structure', structureSchema);
 
-const componentSchema = new mongoose.Schema({ id: Number, structure_id: Number, name: String, description: String, status: String, created_at: String, heat_number: String, sub_components: [{ name: String, heat_number: String, po: String }] }, opts);
+const componentSchema = new mongoose.Schema({ id: Number, structure_id: Number, name: String, description: String, status: String, created_at: String, heat_number: String, sub_components: [{ name: String, heat_number: String, po: String }], mt_records: [{ description: String, worker: String, timestamp: String }] }, opts);
 const Component = mongoose.model('Component', componentSchema);
 
 const historySchema = new mongoose.Schema({ id: Number, component_id: Number, action: String, worker_name: String, notes: String, from_status: String, to_status: String, timestamp: String }, opts);
@@ -130,10 +130,17 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
 const HEAT_PASSWORD = process.env.HEAT_PASSWORD || 'braulio2024';
+const MT_PASSWORD   = process.env.MT_PASSWORD   || 'osiel2024';
 
 app.post('/api/auth/heat', (req, res) => {
   const { password } = req.body;
   if (password === HEAT_PASSWORD) return res.json({ ok: true });
+  res.status(401).json({ ok: false, error: 'Contrasena incorrecta' });
+});
+
+app.post('/api/auth/mt', (req, res) => {
+  const { password } = req.body;
+  if (password === MT_PASSWORD) return res.json({ ok: true });
   res.status(401).json({ ok: false, error: 'Contrasena incorrecta' });
 });
 
@@ -407,6 +414,30 @@ app.put('/api/components/:id/subcomponents', async (req, res) => {
     await Component.findOneAndUpdate({ id }, { sub_components: clean });
     const hid = await nextId('history');
     await History.create({ id: hid, component_id: id, action: 'heat_update', worker_name: worker_name || 'Braulio', notes: `Piezas actualizadas: ${clean.length} registros`, from_status: 'n/a', to_status: 'n/a', timestamp: now() });
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/components/:id/mt', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { description, worker } = req.body;
+    if (!description?.trim()) return res.status(400).json({ error: 'Descripcion requerida' });
+    const record = { description: description.trim(), worker: (worker || 'Osiel Horta').trim(), timestamp: now() };
+    await Component.findOneAndUpdate({ id }, { $push: { mt_records: record } });
+    res.json({ success: true, record });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/components/:id/mt/:index', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const idx = parseInt(req.params.index);
+    const c = await Component.findOne({ id }).lean();
+    if (!c) return res.status(404).json({ error: 'Not found' });
+    const records = [...(c.mt_records || [])];
+    records.splice(idx, 1);
+    await Component.findOneAndUpdate({ id }, { mt_records: records });
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
