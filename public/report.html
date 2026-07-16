@@ -152,14 +152,16 @@
   </div>
 
   <div id="heat-empty" class="text-center py-5">
-    <p class="text-muted">Selecciona un proyecto para ver los heat numbers</p>
+    <p class="text-muted">Selecciona un proyecto para ver los registros</p>
   </div>
 
   <div id="heat-content" style="display:none">
-    <div class="card">
-      <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
-        <span id="heat-title">Heat Numbers</span>
-        <span class="badge bg-secondary" id="heat-count"></span>
+
+    <!-- Heat / PO table -->
+    <div class="card mb-4">
+      <div class="card-header fw-semibold d-flex justify-content-between align-items-center" style="background:#1a2e4a;color:white">
+        <span id="heat-title">Piezas — Heat Number &amp; # PO</span>
+        <span class="badge bg-light text-dark" id="heat-count"></span>
       </div>
       <div class="table-responsive">
         <table class="table table-hover mb-0" id="heat-table">
@@ -168,7 +170,9 @@
               <th>Proyecto</th>
               <th>Estructura</th>
               <th>Componente</th>
+              <th>Pieza</th>
               <th>Heat Number</th>
+              <th># PO</th>
               <th>Estado</th>
             </tr>
           </thead>
@@ -176,6 +180,31 @@
         </table>
       </div>
     </div>
+
+    <!-- MT table -->
+    <div class="card">
+      <div class="card-header fw-semibold d-flex justify-content-between align-items-center" style="background:#2d1b5e;color:white">
+        <span>Registros MT</span>
+        <span class="badge bg-light text-dark" id="mt-count"></span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead class="table-dark">
+            <tr>
+              <th>Proyecto</th>
+              <th>Estructura</th>
+              <th>Componente</th>
+              <th>Soldadura</th>
+              <th>Inspector</th>
+              <th>Fecha</th>
+              <th>Resultado</th>
+            </tr>
+          </thead>
+          <tbody id="mt-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -184,6 +213,7 @@
 let STATUS_CONFIG = {};
 let currentView = 'table';
 let heatData = [];
+let mtData = [];
 let reportData = null;
 
 const PHASE_KEYS  = ['assembly', 'welding', 'galvanizing', 'final'];
@@ -470,6 +500,7 @@ async function loadHeatStructures() {
   const structSel = document.getElementById('heat-structure-select');
   structSel.innerHTML = '<option value="">Todas las estructuras</option>';
   heatData = [];
+  mtData = [];
 
   if (!pid) { document.getElementById('heat-content').style.display='none'; document.getElementById('heat-empty').style.display='block'; return; }
 
@@ -481,23 +512,39 @@ async function loadHeatStructures() {
   });
 
   const comps = await fetch(`/api/components?project_id=${pid}`).then(r => r.json());
-  heatData = comps.map(c => ({
-    proyecto: c.project_name,
-    estructura: c.structure_name,
-    structure_id: c.structure_id,
-    componente: c.name,
-    heat_number: c.heat_number || '',
-    estado: STATUS_CONFIG[c.status]?.label || c.status,
-  }));
+
+  comps.forEach(c => {
+    const base = { proyecto: c.project_name, estructura: c.structure_name, structure_id: c.structure_id, componente: c.name, estado: STATUS_CONFIG[c.status]?.label || c.status };
+    const subs = c.sub_components || [];
+    if (subs.length) {
+      subs.forEach(s => heatData.push({ ...base, pieza: s.name, heat_number: s.heat_number || '', po: s.po || '' }));
+    } else {
+      heatData.push({ ...base, pieza: '', heat_number: '', po: '' });
+    }
+    (c.mt_records || []).forEach(m => mtData.push({ ...base, soldadura: m.description, inspector: m.worker, fecha: m.timestamp }));
+  });
 
   renderHeatTable();
+}
+
+function fmtDateReport(ts) {
+  if (!ts) return '';
+  let d;
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(ts)) {
+    const [dp, tp] = ts.split(' ');
+    const [day, month, year] = dp.split('/');
+    d = new Date(`${year}-${month}-${day}T${tp || '00:00:00'}`);
+  } else { d = new Date(ts); }
+  if (isNaN(d)) return ts;
+  return d.toLocaleString('es-DO', { dateStyle: 'short', timeStyle: 'short' });
 }
 
 function renderHeatTable() {
   const sid = document.getElementById('heat-structure-select').value;
   const filtered = sid ? heatData.filter(r => String(r.structure_id) === sid) : heatData;
+  const filteredMT = sid ? mtData.filter(r => String(r.structure_id) === sid) : mtData;
 
-  if (!filtered.length) {
+  if (!filtered.length && !filteredMT.length) {
     document.getElementById('heat-content').style.display = 'none';
     document.getElementById('heat-empty').style.display = 'block';
     return;
@@ -505,38 +552,59 @@ function renderHeatTable() {
 
   document.getElementById('heat-empty').style.display = 'none';
   document.getElementById('heat-content').style.display = 'block';
-  document.getElementById('heat-count').textContent = `${filtered.length} componentes`;
 
-  const pid = document.getElementById('heat-project-select').value;
   const projName = document.getElementById('heat-project-select').selectedOptions[0]?.text || '';
-  document.getElementById('heat-title').textContent = `Heat Numbers — ${projName}`;
+  document.getElementById('heat-title').textContent = `Piezas — Heat Number & # PO — ${projName}`;
+  document.getElementById('heat-count').textContent = `${filtered.length} piezas`;
+  document.getElementById('mt-count').textContent = `${filteredMT.length} registros`;
 
   document.getElementById('heat-tbody').innerHTML = filtered.map(r => `
     <tr>
       <td>${r.proyecto}</td>
       <td>${r.estructura}</td>
       <td>${r.componente}</td>
+      <td>${r.pieza || '<span class="text-muted">—</span>'}</td>
       <td>${r.heat_number ? `<strong style="color:#0d6efd">${r.heat_number}</strong>` : '<span class="text-muted">Sin registrar</span>'}</td>
+      <td>${r.po ? `<span style="color:#555">${r.po}</span>` : '<span class="text-muted">—</span>'}</td>
       <td><span class="badge" style="background:#e9ecef;color:#333">${r.estado}</span></td>
-    </tr>`).join('');
+    </tr>`).join('') || '<tr><td colspan="7" class="text-center text-muted py-3">Sin piezas registradas</td></tr>';
+
+  document.getElementById('mt-tbody').innerHTML = filteredMT.map(r => `
+    <tr>
+      <td>${r.proyecto}</td>
+      <td>${r.estructura}</td>
+      <td>${r.componente}</td>
+      <td>${r.soldadura}</td>
+      <td>${r.inspector}</td>
+      <td>${fmtDateReport(r.fecha)}</td>
+      <td><span class="badge bg-success">✓ OK</span></td>
+    </tr>`).join('') || '<tr><td colspan="7" class="text-center text-muted py-3">Sin registros MT</td></tr>';
 }
 
 function exportExcel() {
   const sid = document.getElementById('heat-structure-select').value;
   const filtered = sid ? heatData.filter(r => String(r.structure_id) === sid) : heatData;
-  if (!filtered.length) return;
+  const filteredMT = sid ? mtData.filter(r => String(r.structure_id) === sid) : mtData;
+  if (!filtered.length && !filteredMT.length) return;
 
   const projName = document.getElementById('heat-project-select').selectedOptions[0]?.text || 'proyecto';
 
-  const rows = [['Proyecto', 'Estructura', 'Componente', 'Heat Number', 'Estado']];
-  filtered.forEach(r => rows.push([r.proyecto, r.estructura, r.componente, r.heat_number || '', r.estado]));
+  // Sheet 1: Heat Numbers & PO
+  const heatRows = [['Proyecto', 'Estructura', 'Componente', 'Pieza', 'Heat Number', '# PO', 'Estado']];
+  filtered.forEach(r => heatRows.push([r.proyecto, r.estructura, r.componente, r.pieza || '', r.heat_number || '', r.po || '', r.estado]));
+  const ws1 = XLSX.utils.aoa_to_sheet(heatRows);
+  ws1['!cols'] = [{ wch: 22 }, { wch: 22 }, { wch: 20 }, { wch: 18 }, { wch: 16 }, { wch: 14 }, { wch: 20 }];
 
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{ wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 18 }, { wch: 22 }];
+  // Sheet 2: MT Records
+  const mtRows = [['Proyecto', 'Estructura', 'Componente', 'Soldadura', 'Inspector', 'Fecha', 'Resultado']];
+  filteredMT.forEach(r => mtRows.push([r.proyecto, r.estructura, r.componente, r.soldadura, r.inspector, fmtDateReport(r.fecha), 'OK']));
+  const ws2 = XLSX.utils.aoa_to_sheet(mtRows);
+  ws2['!cols'] = [{ wch: 22 }, { wch: 22 }, { wch: 20 }, { wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 10 }];
 
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Heat Numbers');
-  XLSX.writeFile(wb, `HeatNumbers_${projName.replace(/\s+/g,'_')}.xlsx`);
+  XLSX.utils.book_append_sheet(wb, ws1, 'Heat Numbers');
+  XLSX.utils.book_append_sheet(wb, ws2, 'Registros MT');
+  XLSX.writeFile(wb, `Reporte_${projName.replace(/\s+/g,'_')}.xlsx`);
 }
 
 init();
