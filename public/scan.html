@@ -284,15 +284,7 @@ function render() {
     }
   }
 
-  // Heat number section — siempre visible
   document.getElementById('heat-section').style.display = 'block';
-  const heatCurrent = document.getElementById('heat-current');
-  if (c.heat_number) {
-    heatCurrent.innerHTML = `<strong>Heat Number actual:</strong> <span style="color:#0d6efd;font-weight:700">${c.heat_number}</span>`;
-    document.getElementById('heat-number-input').value = c.heat_number;
-  } else {
-    heatCurrent.textContent = 'Sin heat number registrado.';
-  }
 
   renderTimeline(c.timeline || []);
   renderHistory(c.history || []);
