@@ -121,7 +121,11 @@
       }
       .label-item:last-child { break-after: auto; page-break-after: auto; }
       .label-remove { display: none !important; }
-      .label-plate-side { background: white !important; }
+      .label-item, .label-text, .label-plate-side {
+        background: white !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
     }
   </style>
   <script>if(window.innerWidth<768){document.write('<style>body{margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f0f4f8;font-family:sans-serif}.mobile-block{text-align:center;padding:40px 28px}.mobile-block .icon{font-size:4rem}.mobile-block h2{font-size:1.3rem;font-weight:700;margin:16px 0 8px;color:#1a2e4a}.mobile-block p{color:#666;font-size:.95rem;line-height:1.5}</style><div class="mobile-block"><div class="icon">🖥️</div><h2>Solo disponible en computador</h2><p>Esta sección es para uso administrativo.<br>Si escaneaste un código QR, usa el enlace del escáner.</p></div>');throw new Error('mobile')}</script>
