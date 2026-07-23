@@ -78,36 +78,13 @@
       width: 1.5in;
       min-width: 1.5in;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
       border-left: 1.5px solid #1a2e4a;
-      padding: 6px;
-      gap: 6px;
-      background: #f8f9fa;
+      padding: 4px;
+      background: white;
     }
-    .plate-icon {
-      font-size: 2rem;
-      line-height: 1;
-    }
-    .plate-type-text {
-      font-size: 7pt;
-      font-weight: 700;
-      color: #1a2e4a;
-      text-align: center;
-      text-transform: uppercase;
-      letter-spacing: .5px;
-    }
-    .plate-badge {
-      background: #1a2e4a;
-      color: white;
-      font-size: 6pt;
-      font-weight: 700;
-      padding: 2px 8px;
-      border-radius: 10px;
-      text-transform: uppercase;
-      letter-spacing: .5px;
-    }
+    .label-plate-side svg { display: block; width: 100%; height: auto; }
 
     .label-remove {
       position: absolute;
@@ -299,13 +276,39 @@ function renderAll() {
           ${l.po   ? `<div class="lbl-heat">PO#: <span>${esc(l.po)}</span></div>`   : ''}
         </div>
       </div>
-      <div class="label-plate-side">
-        <div class="plate-icon">🔩</div>
-        <div class="plate-type-text">Plate<br>Suelto</div>
-        <div class="plate-badge">Material</div>
-      </div>
+      <div class="label-plate-side">${jcLogoSVG()}</div>
     </div>
   `).join('');
+}
+
+function jcLogoSVG() {
+  const N = 22, cx = 55, cy = 42;
+  const rTip = 36, rRoot = 27, rInner = 23, rHub = 7;
+  const step = (2 * Math.PI) / N;
+  const tHalf = step * 0.28, vHalf = step * 0.12;
+  const pts = [];
+  for (let i = 0; i < N; i++) {
+    const a = i * step - Math.PI / 2;
+    pts.push(
+      `${(cx + rRoot * Math.cos(a - vHalf)).toFixed(2)},${(cy + rRoot * Math.sin(a - vHalf)).toFixed(2)}`,
+      `${(cx + rTip  * Math.cos(a - tHalf)).toFixed(2)},${(cy + rTip  * Math.sin(a - tHalf)).toFixed(2)}`,
+      `${(cx + rTip  * Math.cos(a + tHalf)).toFixed(2)},${(cy + rTip  * Math.sin(a + tHalf)).toFixed(2)}`,
+      `${(cx + rRoot * Math.cos(a + vHalf)).toFixed(2)},${(cy + rRoot * Math.sin(a + vHalf)).toFixed(2)}`
+    );
+  }
+  const gearPath = 'M' + pts.join('L') + 'Z';
+  const spokes = Array.from({length: 6}, (_, i) => {
+    const a = i * Math.PI / 3;
+    return `<line x1="${(cx + rHub * Math.cos(a)).toFixed(1)}" y1="${(cy + rHub * Math.sin(a)).toFixed(1)}" x2="${(cx + rInner * Math.cos(a)).toFixed(1)}" y2="${(cy + rInner * Math.sin(a)).toFixed(1)}" stroke="white" stroke-width="3.5" stroke-linecap="round"/>`;
+  }).join('');
+  return `<svg viewBox="0 0 110 108" xmlns="http://www.w3.org/2000/svg" width="100%" height="auto">
+    <path d="${gearPath}" fill="#3a3a3a"/>
+    <circle cx="${cx}" cy="${cy}" r="${rInner}" fill="#8b7355"/>
+    ${spokes}
+    <circle cx="${cx}" cy="${cy}" r="${rHub}" fill="white"/>
+    <text x="55" y="87" font-family="'Arial Black',Arial,sans-serif" font-weight="900" font-size="11.5" fill="#3a3a3a" text-anchor="middle" letter-spacing=".3">JC Machine Works</text>
+    <text x="55" y="101" font-family="Arial,sans-serif" font-size="11" fill="#999" text-anchor="middle" letter-spacing="2">Corp</text>
+  </svg>`;
 }
 
 function esc(s) {
