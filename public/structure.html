@@ -19,6 +19,8 @@
     .back-btn { background:none;border:none;color:#0d6efd;font-size:.9rem;cursor:pointer;padding:0;margin-bottom:4px; }
     .back-btn:hover { text-decoration:underline; }
     .section-title { font-weight:700;font-size:1rem;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #e9ecef; }
+    .action-btn { font-size:.78rem;padding:4px 12px;border-radius:20px;font-weight:600;border:none;cursor:pointer; }
+    .action-btn:disabled { opacity:.5;cursor:not-allowed; }
   </style>
   <script>if(window.innerWidth<768){document.write('<style>body{margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f0f4f8;font-family:sans-serif}.mobile-block{text-align:center;padding:40px 28px}.mobile-block .icon{font-size:4rem}.mobile-block h2{font-size:1.3rem;font-weight:700;margin:16px 0 8px;color:#1a2e4a}.mobile-block p{color:#666;font-size:.95rem;line-height:1.5}</style><div class="mobile-block"><div class="icon">🖥️</div><h2>Solo disponible en computador</h2><p>Esta sección es para uso administrativo.<br>Si escaneaste un código QR, usa el enlace del escáner.</p></div>');throw new Error('mobile')}</script>
 </head>
@@ -75,9 +77,36 @@
   </div>
 </div>
 
+<!-- Action Modal -->
+<div class="modal fade" id="actionModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="actionModalTitle">Cambiar estado</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small mb-3" id="actionModalDesc"></p>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Trabajador</label>
+          <select id="actionWorker" class="form-select"></select>
+        </div>
+        <div class="mb-3" id="actionNotesWrap" style="display:none">
+          <label class="form-label fw-semibold">Motivo del rechazo <span class="text-danger">*</span></label>
+          <textarea id="actionNotes" class="form-control" rows="2" placeholder="Describe el motivo..."></textarea>
+        </div>
+        <div id="actionError" class="alert alert-danger py-2 small" style="display:none"></div>
+        <div class="d-flex flex-wrap gap-2" id="actionBtns"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 let STATUS_CONFIG = {};
+let ACTION_CONFIG = {};
+let workers = [];
 
 const PHASE_NAMES  = { fabrication:'Fabricación', galvanizing:'Galvanizado', final:'Insp. Final' };
 const PHASE_COLORS = { fabrication:'#0d6efd', galvanizing:'#6f42c1', final:'#198754' };
@@ -113,8 +142,13 @@ async function init() {
   const id = params.get('id');
   if (!id) { document.getElementById('loading').innerHTML = '<p class="text-danger">Sin ID de estructura.</p>'; return; }
 
-  const info = await fetch('/api/info').then(r => r.json());
+  const [info, ws] = await Promise.all([
+    fetch('/api/info').then(r => r.json()),
+    fetch('/api/workers').then(r => r.json()),
+  ]);
   STATUS_CONFIG = info.STATUS_CONFIG;
+  ACTION_CONFIG = info.ACTION_CONFIG;
+  workers = ws;
 
   const [struct, tl] = await Promise.all([
     fetch(`/api/structures/${id}`).then(r => r.json()),
@@ -290,13 +324,80 @@ function render(struct, tl, compDetails) {
           </div>`).join('')}
       </div>` : ''}
 
-      <div class="text-end mt-2">
-        <a href="scan.html?id=${c.id}" class="btn btn-sm btn-outline-primary">Ver / Escanear</a>
+      <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+        <div class="d-flex flex-wrap gap-2">
+          ${(c.available_actions || []).map(a => {
+            const btnClass = a.btn === 'danger' ? 'btn-danger' : a.btn === 'success' ? 'btn-success' : a.btn === 'warning' ? 'btn-warning' : a.btn === 'info' ? 'btn-info' : 'btn-primary';
+            return `<button class="action-btn btn btn-sm ${btnClass}" onclick="openActionModal(${c.id}, '${a.key}')">${a.label}</button>`;
+          }).join('')}
+        </div>
+        <a href="scan.html?id=${c.id}" class="btn btn-sm btn-outline-secondary">Ver detalle</a>
       </div>
     </div>`;
   }).join('');
 
   document.getElementById('comp-list').innerHTML = compHtml || '<p class="text-muted">Sin componentes</p>';
+}
+
+let _actionModal = null;
+let _pendingAction = { compId: null, actionKey: null };
+
+function openActionModal(compId, actionKey) {
+  const cfg = ACTION_CONFIG[actionKey] || {};
+  _pendingAction = { compId, actionKey };
+
+  document.getElementById('actionModalTitle').textContent = cfg.label || actionKey;
+  document.getElementById('actionModalDesc').textContent =
+    `Componente ID-${compId} → ${STATUS_CONFIG[cfg.to_status]?.label || cfg.to_status}`;
+
+  const workerSel = document.getElementById('actionWorker');
+  workerSel.innerHTML = workers.map(w => `<option value="${w.name}">${w.name}</option>`).join('');
+
+  const notesWrap = document.getElementById('actionNotesWrap');
+  notesWrap.style.display = cfg.requires_notes ? '' : 'none';
+  document.getElementById('actionNotes').value = '';
+  document.getElementById('actionError').style.display = 'none';
+
+  const btnsEl = document.getElementById('actionBtns');
+  const btnClass = cfg.btn === 'danger' ? 'btn-danger' : cfg.btn === 'success' ? 'btn-success' : cfg.btn === 'warning' ? 'btn-warning' : cfg.btn === 'info' ? 'btn-info' : 'btn-primary';
+  btnsEl.innerHTML = `
+    <button class="btn ${btnClass}" onclick="performAction()" id="actionConfirmBtn">${cfg.label}</button>
+    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+  `;
+
+  if (!_actionModal) _actionModal = new bootstrap.Modal(document.getElementById('actionModal'));
+  _actionModal.show();
+}
+
+async function performAction() {
+  const { compId, actionKey } = _pendingAction;
+  const worker = document.getElementById('actionWorker').value;
+  const notes  = document.getElementById('actionNotes').value.trim();
+  const errEl  = document.getElementById('actionError');
+  const btn    = document.getElementById('actionConfirmBtn');
+
+  errEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  const res = await fetch(`/api/components/${compId}/action`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: actionKey, worker_name: worker, notes }),
+  }).then(r => r.json());
+
+  btn.disabled = false;
+  btn.textContent = ACTION_CONFIG[actionKey]?.label || actionKey;
+
+  if (res.error) {
+    errEl.textContent = res.error;
+    errEl.style.display = '';
+    return;
+  }
+
+  _actionModal.hide();
+  // Reload the page to reflect new status
+  location.reload();
 }
 
 init();
