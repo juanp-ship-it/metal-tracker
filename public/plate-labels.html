@@ -73,15 +73,15 @@
       color: #1a2e4a;
     }
 
-    /* Right: plate icon side */
+    /* Right: logo side */
     .label-plate-side {
-      width: 1.5in;
-      min-width: 1.5in;
+      width: 1.85in;
+      min-width: 1.85in;
       display: flex;
       align-items: center;
       justify-content: center;
       border-left: 1.5px solid #1a2e4a;
-      padding: 4px;
+      padding: 5px 6px;
       background: white;
     }
     .label-plate-side svg { display: block; width: 100%; height: auto; }
@@ -282,8 +282,9 @@ function renderAll() {
 }
 
 function jcLogoSVG() {
-  const N = 22, cx = 55, cy = 42;
-  const rTip = 36, rRoot = 27, rInner = 23, rHub = 7;
+  // Horizontal layout: gear left, text right — matching original logo
+  const N = 22, cx = 40, cy = 40;
+  const rTip = 34, rRoot = 26, rInner = 22, rHub = 6;
   const step = (2 * Math.PI) / N;
   const tHalf = step * 0.28, vHalf = step * 0.12;
   const pts = [];
@@ -299,15 +300,17 @@ function jcLogoSVG() {
   const gearPath = 'M' + pts.join('L') + 'Z';
   const spokes = Array.from({length: 6}, (_, i) => {
     const a = i * Math.PI / 3;
-    return `<line x1="${(cx + rHub * Math.cos(a)).toFixed(1)}" y1="${(cy + rHub * Math.sin(a)).toFixed(1)}" x2="${(cx + rInner * Math.cos(a)).toFixed(1)}" y2="${(cy + rInner * Math.sin(a)).toFixed(1)}" stroke="white" stroke-width="3.5" stroke-linecap="round"/>`;
+    return `<line x1="${(cx + rHub * Math.cos(a)).toFixed(1)}" y1="${(cy + rHub * Math.sin(a)).toFixed(1)}" x2="${(cx + rInner * Math.cos(a)).toFixed(1)}" y2="${(cy + rInner * Math.sin(a)).toFixed(1)}" stroke="white" stroke-width="3" stroke-linecap="round"/>`;
   }).join('');
-  return `<svg viewBox="0 0 110 108" xmlns="http://www.w3.org/2000/svg" width="100%" height="auto">
+  // viewBox: 185 wide × 82 tall. Gear occupies x≈6–74. Text starts at x=80.
+  // textLength forces text to fit exactly in the available 103px (80→183).
+  return `<svg viewBox="0 0 185 82" xmlns="http://www.w3.org/2000/svg" width="100%" height="auto">
     <path d="${gearPath}" fill="#3a3a3a"/>
     <circle cx="${cx}" cy="${cy}" r="${rInner}" fill="#8b7355"/>
     ${spokes}
     <circle cx="${cx}" cy="${cy}" r="${rHub}" fill="white"/>
-    <text x="55" y="87" font-family="'Arial Black',Arial,sans-serif" font-weight="900" font-size="11.5" fill="#3a3a3a" text-anchor="middle" letter-spacing=".3">JC Machine Works</text>
-    <text x="55" y="101" font-family="Arial,sans-serif" font-size="11" fill="#999" text-anchor="middle" letter-spacing="2">Corp</text>
+    <text x="80" y="34" font-family="'Arial Black',Arial,sans-serif" font-weight="900" font-size="15" fill="#3a3a3a" textLength="103" lengthAdjust="spacingAndGlyphs">JC Machine Works</text>
+    <text x="183" y="54" font-family="Arial,sans-serif" font-size="13" fill="#aaa" text-anchor="end" letter-spacing="1">Corp</text>
   </svg>`;
 }
 
