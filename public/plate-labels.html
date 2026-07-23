@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MetalTrack - Etiquetas de Plates</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="style.css" rel="stylesheet">
+  <style>
+    .label-grid { display: flex; flex-wrap: wrap; gap: 10px; padding: 10px; }
+    .label-item {
+      border: 2px solid #222;
+      border-radius: 4px;
+      width: 4in;
+      height: 2in;
+      background: white;
+      font-family: Arial, sans-serif;
+      position: relative;
+      overflow: hidden;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: row;
+      align-items: stretch;
+    }
+
+    /* Left: text */
+    .label-text {
+      flex: 1;
+      min-width: 0;
+      padding: 12px 10px 12px 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .label-top { display: flex; flex-direction: column; gap: 3px; }
+
+    .lbl-project {
+      font-size: 11pt;
+      font-weight: 900;
+      color: #1a2e4a;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      line-height: 1.15;
+      word-break: break-word;
+    }
+    .lbl-structure {
+      font-size: 9pt;
+      font-weight: 600;
+      color: #444;
+      line-height: 1.2;
+      word-break: break-word;
+    }
+
+    .lbl-divider { border: none; border-top: 1.5px solid #1a2e4a; margin: 6px 0; }
+
+    .label-bottom { display: flex; flex-direction: column; gap: 4px; }
+
+    .lbl-component {
+      font-size: 10.5pt;
+      font-weight: 700;
+      color: #1a2e4a;
+      line-height: 1.2;
+      word-break: break-word;
+    }
+    .lbl-heat {
+      font-size: 8pt;
+      color: #333;
+      line-height: 1.3;
+    }
+    .lbl-heat span {
+      font-weight: 700;
+      color: #1a2e4a;
+    }
+
+    /* Right: plate icon side */
+    .label-plate-side {
+      width: 1.5in;
+      min-width: 1.5in;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-left: 1.5px solid #1a2e4a;
+      padding: 6px;
+      gap: 6px;
+      background: #f8f9fa;
+    }
+    .plate-icon {
+      font-size: 2rem;
+      line-height: 1;
+    }
+    .plate-type-text {
+      font-size: 7pt;
+      font-weight: 700;
+      color: #1a2e4a;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .plate-badge {
+      background: #1a2e4a;
+      color: white;
+      font-size: 6pt;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 10px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+
+    .label-remove {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      z-index: 10;
+      background: rgba(220,53,69,.85);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      font-size: 12px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .label-remove:hover { background: #dc3545; }
+
+    @media print {
+      nav, .no-print { display: none !important; }
+      body { background: white !important; margin: 0; padding: 0; }
+      @page { size: 4in 2in landscape; margin: 0; }
+      .label-grid { display: flex; flex-wrap: wrap; gap: 0; padding: 0; }
+      .label-item {
+        break-after: page;
+        page-break-after: always;
+        border: none;
+        border-radius: 0;
+        width: 4in;
+        height: 2in;
+      }
+      .label-item:last-child { break-after: auto; page-break-after: auto; }
+      .label-remove { display: none !important; }
+      .label-plate-side { background: #f8f9fa !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .plate-badge { background: #1a2e4a !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+  <script>if(window.innerWidth<768){document.write('<style>body{margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f0f4f8;font-family:sans-serif}.mobile-block{text-align:center;padding:40px 28px}.mobile-block .icon{font-size:4rem}.mobile-block h2{font-size:1.3rem;font-weight:700;margin:16px 0 8px;color:#1a2e4a}.mobile-block p{color:#666;font-size:.95rem;line-height:1.5}</style><div class="mobile-block"><div class="icon">🖥️</div><h2>Solo disponible en computador</h2><p>Esta sección es para uso administrativo.<br>Si escaneaste un código QR, usa el enlace del escáner.</p></div>');throw new Error('mobile')}</script>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark no-print">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="index.html">MetalTrack</a>
+    <div class="navbar-nav ms-auto flex-row gap-3">
+      <a class="nav-link" href="index.html">Dashboard</a>
+      <a class="nav-link" href="admin.html">Administrar</a>
+      <a class="nav-link" href="labels.html">Etiquetas</a>
+      <a class="nav-link" href="report.html">Informes</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid px-4 py-4 no-print">
+
+  <div class="row mb-3">
+    <div class="col-12">
+      <h5 class="fw-bold mb-0">Etiquetas de Plates Sueltos</h5>
+      <p class="text-muted small mb-0">Genera etiquetas para plates que no están vinculados a un componente.</p>
+    </div>
+  </div>
+
+  <!-- Form card -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label fw-semibold">Proyecto</label>
+          <input type="text" id="inp-project" class="form-control" placeholder="Ej: DMS-516">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label fw-semibold">Estructura</label>
+          <input type="text" id="inp-structure" class="form-control" placeholder="Ej: Truss A">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label fw-semibold">Plate</label>
+          <input type="text" id="inp-plate" class="form-control" placeholder="Ej: PL-1/4x12x24">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label fw-semibold">Heat Number</label>
+          <input type="text" id="inp-heat" class="form-control" placeholder="Ej: 12345A">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label fw-semibold"># PO</label>
+          <input type="text" id="inp-po" class="form-control" placeholder="Ej: PO-9988">
+        </div>
+        <div class="col-md-2 d-flex gap-2">
+          <button class="btn btn-primary flex-fill" onclick="addLabel()">+ Agregar</button>
+        </div>
+      </div>
+      <div id="form-error" class="text-danger small mt-2" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- Actions bar -->
+  <div id="actions-bar" class="d-flex justify-content-between align-items-center mb-3" style="display:none !important">
+    <span class="text-muted small" id="label-count">0 etiquetas</span>
+    <div class="d-flex gap-2">
+      <button class="btn btn-sm btn-outline-danger" onclick="clearAll()">Limpiar todo</button>
+      <button class="btn btn-primary" onclick="window.print()">Imprimir etiquetas</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Label Grid -->
+<div id="label-grid" class="label-grid"></div>
+
+<div id="empty-state" class="text-center py-5 no-print">
+  <div style="font-size:3rem">🏷️</div>
+  <h5 class="mt-3 text-muted">Agrega datos arriba para generar etiquetas</h5>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+let labels = [];
+
+function addLabel() {
+  const project   = document.getElementById('inp-project').value.trim();
+  const structure = document.getElementById('inp-structure').value.trim();
+  const plate     = document.getElementById('inp-plate').value.trim();
+  const heat      = document.getElementById('inp-heat').value.trim();
+  const po        = document.getElementById('inp-po').value.trim();
+  const errEl     = document.getElementById('form-error');
+
+  if (!project || !plate) {
+    errEl.textContent = 'Proyecto y Plate son requeridos.';
+    errEl.style.display = '';
+    return;
+  }
+  errEl.style.display = 'none';
+
+  const id = Date.now();
+  labels.push({ id, project, structure, plate, heat, po });
+  renderAll();
+
+  // Clear plate/heat/po fields for quick multi-entry; keep project+structure
+  document.getElementById('inp-plate').value = '';
+  document.getElementById('inp-heat').value = '';
+  document.getElementById('inp-po').value = '';
+  document.getElementById('inp-plate').focus();
+}
+
+function removeLabel(id) {
+  labels = labels.filter(l => l.id !== id);
+  renderAll();
+}
+
+function clearAll() {
+  if (!confirm('¿Borrar todas las etiquetas?')) return;
+  labels = [];
+  renderAll();
+}
+
+function renderAll() {
+  const grid = document.getElementById('label-grid');
+  const empty = document.getElementById('empty-state');
+  const actBar = document.getElementById('actions-bar');
+  const countEl = document.getElementById('label-count');
+
+  if (!labels.length) {
+    grid.innerHTML = '';
+    empty.style.display = '';
+    actBar.style.display = 'none !important';
+    actBar.classList.add('d-none');
+    return;
+  }
+
+  empty.style.display = 'none';
+  actBar.style.removeProperty('display');
+  actBar.classList.remove('d-none');
+  countEl.textContent = `${labels.length} etiqueta${labels.length !== 1 ? 's' : ''}`;
+
+  grid.innerHTML = labels.map(l => `
+    <div class="label-item" data-id="${l.id}">
+      <button class="label-remove no-print" onclick="removeLabel(${l.id})" title="Eliminar">&times;</button>
+      <div class="label-text">
+        <div class="label-top">
+          <div class="lbl-project">${esc(l.project)}</div>
+          ${l.structure ? `<div class="lbl-structure">${esc(l.structure)}</div>` : ''}
+        </div>
+        <hr class="lbl-divider">
+        <div class="label-bottom">
+          <div class="lbl-component">${esc(l.plate)}</div>
+          ${l.heat ? `<div class="lbl-heat">Heat: <span>${esc(l.heat)}</span></div>` : ''}
+          ${l.po   ? `<div class="lbl-heat">PO#: <span>${esc(l.po)}</span></div>`   : ''}
+        </div>
+      </div>
+      <div class="label-plate-side">
+        <div class="plate-icon">🔩</div>
+        <div class="plate-type-text">Plate<br>Suelto</div>
+        <div class="plate-badge">Material</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Allow pressing Enter in any field to add
+document.addEventListener('DOMContentLoaded', () => {
+  ['inp-project','inp-structure','inp-plate','inp-heat','inp-po'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => {
+      if (e.key === 'Enter') addLabel();
+    });
+  });
+});
+</script>
+</body>
+</html>
