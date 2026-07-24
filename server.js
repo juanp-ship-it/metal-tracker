@@ -47,6 +47,9 @@ const History = mongoose.model('History', historySchema);
 const workerSchema = new mongoose.Schema({ id: Number, name: String, role: String }, opts);
 const Worker = mongoose.model('Worker', workerSchema);
 
+const plateLabelSchema = new mongoose.Schema({ id: Number, project: String, structure: String, plate: String, heat: String, po: String, created_at: String }, opts);
+const PlateLabel = mongoose.model('PlateLabel', plateLabelSchema);
+
 function now() {
   return new Date().toLocaleString('es-CO', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(',', '');
 }
@@ -641,6 +644,31 @@ app.get('/api/report/project/:id', async (req, res) => {
     const maxDate = allDates.length ? new Date(Date.now()) : null;
 
     res.json({ project, structures: result, statusCounts, minDate, maxDate });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── PLATE LABELS ──────────────────────────────────────────────────────────────
+app.get('/api/plate-labels', async (req, res) => {
+  try {
+    const labels = await PlateLabel.find().lean().sort({ id: -1 });
+    res.json(labels);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/plate-labels', async (req, res) => {
+  try {
+    const { project, structure, plate, heat, po } = req.body;
+    if (!project?.trim() || !plate?.trim()) return res.status(400).json({ error: 'Proyecto y Plate son requeridos' });
+    const id = await nextId('plate_label');
+    const label = await PlateLabel.create({ id, project: project.trim(), structure: structure?.trim()||'', plate: plate.trim(), heat: heat?.trim()||'', po: po?.trim()||'', created_at: now() });
+    res.json(label);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/plate-labels/:id', async (req, res) => {
+  try {
+    await PlateLabel.deleteOne({ id: parseInt(req.params.id) });
+    res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

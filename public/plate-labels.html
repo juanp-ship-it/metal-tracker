@@ -208,13 +208,20 @@
 <script>
 let labels = [];
 
-function addLabel() {
+async function init() {
+  const data = await fetch('/api/plate-labels').then(r => r.json()).catch(() => []);
+  labels = Array.isArray(data) ? data : [];
+  renderAll();
+}
+
+async function addLabel() {
   const project   = document.getElementById('inp-project').value.trim();
   const structure = document.getElementById('inp-structure').value.trim();
   const plate     = document.getElementById('inp-plate').value.trim();
   const heat      = document.getElementById('inp-heat').value.trim();
   const po        = document.getElementById('inp-po').value.trim();
   const errEl     = document.getElementById('form-error');
+  const btn       = document.querySelector('button[onclick="addLabel()"]');
 
   if (!project || !plate) {
     errEl.textContent = 'Proyecto y Plate son requeridos.';
@@ -222,25 +229,39 @@ function addLabel() {
     return;
   }
   errEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
 
-  const id = Date.now();
-  labels.push({ id, project, structure, plate, heat, po });
+  const res = await fetch('/api/plate-labels', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ project, structure, plate, heat, po }),
+  }).then(r => r.json());
+
+  btn.disabled = false;
+  btn.textContent = '+ Agregar';
+
+  if (res.error) { errEl.textContent = res.error; errEl.style.display = ''; return; }
+
+  labels.unshift(res);
   renderAll();
 
-  // Clear plate/heat/po fields for quick multi-entry; keep project+structure
   document.getElementById('inp-plate').value = '';
   document.getElementById('inp-heat').value = '';
   document.getElementById('inp-po').value = '';
   document.getElementById('inp-plate').focus();
 }
 
-function removeLabel(id) {
+async function removeLabel(id) {
+  if (!confirm('¿Borrar esta etiqueta?')) return;
+  await fetch(`/api/plate-labels/${id}`, { method: 'DELETE' });
   labels = labels.filter(l => l.id !== id);
   renderAll();
 }
 
-function clearAll() {
-  if (!confirm('¿Borrar todas las etiquetas?')) return;
+async function clearAll() {
+  if (!confirm('¿Borrar TODAS las etiquetas? Esta acción no se puede deshacer.')) return;
+  await Promise.all(labels.map(l => fetch(`/api/plate-labels/${l.id}`, { method: 'DELETE' })));
   labels = [];
   renderAll();
 }
@@ -321,8 +342,8 @@ function esc(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// Allow pressing Enter in any field to add
 document.addEventListener('DOMContentLoaded', () => {
+  init();
   ['inp-project','inp-structure','inp-plate','inp-heat','inp-po'].forEach(id => {
     document.getElementById(id).addEventListener('keydown', e => {
       if (e.key === 'Enter') addLabel();
