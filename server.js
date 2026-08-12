@@ -3,6 +3,8 @@ const QRCode = require('qrcode');
 const path = require('path');
 const os = require('os');
 const mongoose = require('mongoose');
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -49,6 +51,38 @@ const Worker = mongoose.model('Worker', workerSchema);
 
 const plateLabelSchema = new mongoose.Schema({ id: Number, project: String, structure: String, plate: String, heat: String, po: String, created_at: String }, opts);
 const PlateLabel = mongoose.model('PlateLabel', plateLabelSchema);
+
+const basePlateCheckSchema = new mongoose.Schema({
+  id: Number,
+  structure_id: Number,
+  column_label: String,
+  elevation: String,
+  tolerance_deg: Number,
+  reference_note: String,
+  bolt_targets: [{ label: String, angle_deg: Number, sense: String }],
+  pdf_data: Buffer,
+  pdf_mimetype: String,
+  pdf_filename: String,
+  created_at: String,
+}, opts);
+const BasePlateCheck = mongoose.model('BasePlateCheck', basePlateCheckSchema);
+
+const basePlateValidationSchema = new mongoose.Schema({
+  id: Number,
+  check_id: Number,
+  worker_name: String,
+  notes: String,
+  mirrored: Boolean,
+  center: { x: Number, y: Number },
+  reference_point_1: { x: Number, y: Number },
+  reference_point_2: { x: Number, y: Number },
+  results: [{ label: String, x: Number, y: Number, target_deg: Number, target_sense: String, measured_deg: Number, measured_sense: String, delta_deg: Number, verdict: String }],
+  overall_verdict: String,
+  photo_data: Buffer,
+  photo_mimetype: String,
+  created_at: String,
+}, opts);
+const BasePlateValidation = mongoose.model('BasePlateValidation', basePlateValidationSchema);
 
 function now() {
   return new Date().toLocaleString('es-CO', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(',', '');
@@ -668,6 +702,175 @@ app.post('/api/plate-labels', async (req, res) => {
 app.delete('/api/plate-labels/:id', async (req, res) => {
   try {
     await PlateLabel.deleteOne({ id: parseInt(req.params.id) });
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── BASE PLATE ROTATION CHECKS ──────────────────────────────────────────────────
+// Angle from P->A (reference) to P->B (target), positive = counterclockwise as seen
+// directly in the photo (image y grows downward, so we negate dy to read it visually).
+function signedAngleDeg(P, A, B) {
+  const a1 = Math.atan2(-(A.y - P.y), A.x - P.x);
+  const a2 = Math.atan2(-(B.y - P.y), B.x - P.x);
+  let deg = (a2 - a1) * 180 / Math.PI;
+  return ((deg + 180) % 360 + 360) % 360 - 180;
+}
+
+// mirrored=true means the photo shows the underside of the plate (structure laid down),
+// which reverses CW/CCW handedness relative to the as-built plan (top) view.
+function computeBoltResult(P, A, B, mirrored, targetDeg, targetSense) {
+  const rawPhotoSigned = signedAngleDeg(P, A, B);
+  const topSigned = mirrored ? -rawPhotoSigned : rawPhotoSigned;
+  const targetSigned = targetSense === 'CCW' ? targetDeg : -targetDeg;
+  const delta = Math.round(Math.abs(topSigned - targetSigned) * 100) / 100;
+  return { measured_deg: Math.round(Math.abs(topSigned) * 100) / 100, measured_sense: topSigned >= 0 ? 'CCW' : 'CW', delta_deg: delta };
+}
+
+app.get('/api/baseplate-checks', async (req, res) => {
+  try {
+    const filter = {};
+    if (req.query.structure_id) filter.structure_id = parseInt(req.query.structure_id);
+    const checks = await BasePlateCheck.find(filter).select('-pdf_data').lean().sort({ id: -1 });
+    const result = await Promise.all(checks.map(async c => {
+      const validations = await BasePlateValidation.find({ check_id: c.id }).select('overall_verdict created_at').lean().sort({ id: -1 });
+      return { ...c, validation_count: validations.length, last_verdict: validations[0]?.overall_verdict || null, last_validated_at: validations[0]?.created_at || null };
+    }));
+    res.json(result);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/baseplate-checks/:id', async (req, res) => {
+  try {
+    const check = await BasePlateCheck.findOne({ id: parseInt(req.params.id) }).select('-pdf_data').lean();
+    if (!check) return res.status(404).json({ error: 'Not found' });
+    const structure = await Structure.findOne({ id: check.structure_id }).lean();
+    res.json({ ...check, structure_name: structure?.name || '' });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/baseplate-checks/:id/pdf', async (req, res) => {
+  try {
+    const check = await BasePlateCheck.findOne({ id: parseInt(req.params.id) }).lean();
+    if (!check || !check.pdf_data) return res.status(404).send('Not found');
+    res.set('Content-Type', check.pdf_mimetype || 'application/pdf');
+    res.set('Content-Disposition', `inline; filename="${(check.pdf_filename||'as-built.pdf').replace(/"/g,'')}"`);
+    res.send(check.pdf_data);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/baseplate-checks', upload.single('pdf'), async (req, res) => {
+  try {
+    const { structure_id, column_label, elevation, tolerance_deg, reference_note } = req.body;
+    let bolt_targets = [];
+    try { bolt_targets = JSON.parse(req.body.bolt_targets || '[]'); } catch {}
+    if (!structure_id || !column_label?.trim()) return res.status(400).json({ error: 'Estructura y columna son requeridas' });
+    if (!Array.isArray(bolt_targets) || !bolt_targets.length) return res.status(400).json({ error: 'Agrega al menos un bolt objetivo' });
+    const id = await nextId('baseplate_check');
+    const doc = {
+      id,
+      structure_id: parseInt(structure_id),
+      column_label: column_label.trim(),
+      elevation: elevation?.trim() || '',
+      tolerance_deg: parseFloat(tolerance_deg) || 1,
+      reference_note: reference_note?.trim() || '',
+      bolt_targets: bolt_targets.map(t => ({ label: String(t.label).trim(), angle_deg: parseFloat(t.angle_deg), sense: t.sense === 'CCW' ? 'CCW' : 'CW' })),
+      created_at: now(),
+    };
+    if (req.file) { doc.pdf_data = req.file.buffer; doc.pdf_mimetype = req.file.mimetype; doc.pdf_filename = req.file.originalname; }
+    const check = await BasePlateCheck.create(doc);
+    const obj = check.toObject(); delete obj.pdf_data;
+    res.json(obj);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/baseplate-checks/:id', upload.single('pdf'), async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { column_label, elevation, tolerance_deg, reference_note } = req.body;
+    let bolt_targets;
+    if (req.body.bolt_targets) { try { bolt_targets = JSON.parse(req.body.bolt_targets); } catch {} }
+    const update = {};
+    if (column_label !== undefined) update.column_label = column_label.trim();
+    if (elevation !== undefined) update.elevation = elevation.trim();
+    if (tolerance_deg !== undefined) update.tolerance_deg = parseFloat(tolerance_deg);
+    if (reference_note !== undefined) update.reference_note = reference_note.trim();
+    if (Array.isArray(bolt_targets)) update.bolt_targets = bolt_targets.map(t => ({ label: String(t.label).trim(), angle_deg: parseFloat(t.angle_deg), sense: t.sense === 'CCW' ? 'CCW' : 'CW' }));
+    if (req.file) { update.pdf_data = req.file.buffer; update.pdf_mimetype = req.file.mimetype; update.pdf_filename = req.file.originalname; }
+    await BasePlateCheck.updateOne({ id }, update);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/baseplate-checks/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    await BasePlateCheck.deleteOne({ id });
+    await BasePlateValidation.deleteMany({ check_id: id });
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/baseplate-checks/:id/validations', async (req, res) => {
+  try {
+    const validations = await BasePlateValidation.find({ check_id: parseInt(req.params.id) }).select('-photo_data').lean().sort({ id: -1 });
+    res.json(validations);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/baseplate-checks/:id/validations', upload.single('photo'), async (req, res) => {
+  try {
+    const check_id = parseInt(req.params.id);
+    const check = await BasePlateCheck.findOne({ id: check_id }).lean();
+    if (!check) return res.status(404).json({ error: 'Check no encontrado' });
+    const { worker_name, notes, mirrored } = req.body;
+    if (!worker_name?.trim()) return res.status(400).json({ error: 'Nombre del operario requerido' });
+    let center, reference_point_1, reference_point_2, targets;
+    try {
+      center = JSON.parse(req.body.center);
+      reference_point_1 = JSON.parse(req.body.reference_point_1);
+      reference_point_2 = JSON.parse(req.body.reference_point_2);
+      targets = JSON.parse(req.body.targets);
+    } catch { return res.status(400).json({ error: 'Puntos invalidos' }); }
+    if (!Array.isArray(targets) || !targets.length) return res.status(400).json({ error: 'Faltan puntos de bolts objetivo' });
+
+    // The 0deg reference isn't a real bolt — it's the direction between two bolts the
+    // operator has confirmed are level with each other (bubble level). We translate that
+    // direction so it originates at the center, giving us a "virtual" reference point A.
+    const virtualRef = { x: center.x + (reference_point_2.x - reference_point_1.x), y: center.y + (reference_point_2.y - reference_point_1.y) };
+
+    const isMirrored = mirrored === 'true' || mirrored === true;
+    const results = targets.map(t => {
+      const cfg = check.bolt_targets.find(bt => bt.label === t.label);
+      if (!cfg) return null;
+      const r = computeBoltResult(center, virtualRef, { x: t.x, y: t.y }, isMirrored, cfg.angle_deg, cfg.sense);
+      const verdict = r.delta_deg <= check.tolerance_deg ? 'CONFORME' : 'NO_CONFORME';
+      return { label: t.label, x: t.x, y: t.y, target_deg: cfg.angle_deg, target_sense: cfg.sense, ...r, verdict };
+    }).filter(Boolean);
+
+    if (!results.length) return res.status(400).json({ error: 'Ningun bolt coincide con la configuracion del check' });
+    const overall_verdict = results.every(r => r.verdict === 'CONFORME') ? 'CONFORME' : 'NO_CONFORME';
+
+    const id = await nextId('baseplate_validation');
+    const doc = { id, check_id, worker_name: worker_name.trim(), notes: notes?.trim() || '', mirrored: isMirrored, center, reference_point_1, reference_point_2, results, overall_verdict, created_at: now() };
+    if (req.file) { doc.photo_data = req.file.buffer; doc.photo_mimetype = req.file.mimetype; }
+    const validation = await BasePlateValidation.create(doc);
+    const obj = validation.toObject(); delete obj.photo_data;
+    res.json(obj);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/baseplate-validations/:id/photo', async (req, res) => {
+  try {
+    const v = await BasePlateValidation.findOne({ id: parseInt(req.params.id) }).lean();
+    if (!v || !v.photo_data) return res.status(404).send('Not found');
+    res.set('Content-Type', v.photo_mimetype || 'image/jpeg');
+    res.send(v.photo_data);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/baseplate-validations/:id', async (req, res) => {
+  try {
+    await BasePlateValidation.deleteOne({ id: parseInt(req.params.id) });
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

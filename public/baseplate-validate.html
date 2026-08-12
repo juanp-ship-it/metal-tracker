@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>MetalTrack - Validar Base Plate</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body { background: #f0f2f5; font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; }
+    .wrap { max-width: 520px; margin: 0 auto; padding: 16px; }
+
+    nav { background: #1a2e4a; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+    nav span { color: white; font-weight: 700; font-size: 1rem; }
+    nav a { color: rgba(255,255,255,.7); font-size: .85rem; text-decoration: none; }
+
+    .info-card { background: white; border-radius: 14px; padding: 18px; box-shadow: 0 2px 10px rgba(0,0,0,.09); margin-bottom: 14px; }
+    .breadcrumb { font-size: .78rem; color: #999; margin-bottom: 3px; }
+    .comp-name { font-size: 1.4rem; font-weight: 700; color: #1a2e4a; }
+    .comp-desc { font-size: .82rem; color: #888; margin-top: 3px; }
+    .target-chip { display: inline-block; background: #eef2f8; color: #1a2e4a; font-size: .78rem; padding: 3px 10px; border-radius: 10px; margin: 3px 4px 0 0; }
+
+    .action-card { background: white; border-radius: 14px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,.09); margin-bottom: 14px; }
+    .action-card label { font-weight: 600; margin-bottom: 6px; display: block; }
+    .name-input { width: 100%; padding: 13px 14px; font-size: 1rem; border: 2px solid #dee2e6; border-radius: 10px; outline: none; background: white; }
+    .name-input:focus { border-color: #0d6efd; }
+
+    .btn-action { width: 100%; padding: 15px; font-size: 1.05rem; font-weight: 700; border: none; border-radius: 12px; cursor: pointer; margin-top: 10px; }
+    .btn-action:active { opacity: .8; }
+    .btn-action:disabled { opacity: .5; }
+    .btn-primary-action { background: #0d6efd; color: white; }
+    .btn-success-action { background: #198754; color: white; }
+    .btn-secondary-action { background: #6c757d; color: white; }
+    .btn-outline-action { background: white; color: #1a2e4a; border: 2px solid #dee2e6 !important; }
+
+    .step-banner { border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; font-weight: 700; text-align: center; background: #fff3e0; color: #a35a00; }
+    .step-banner.done { background: #d1e7dd; color: #0f5132; }
+
+    .photo-wrap { position: relative; width: 100%; border-radius: 12px; overflow: hidden; background: #000; touch-action: manipulation; }
+    .photo-wrap img { width: 100%; display: block; }
+    .photo-wrap canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+    .results-list .result-row { border-left: 4px solid #dee2e6; padding: 8px 10px; margin-bottom: 8px; border-radius: 6px; background: #f8f9fa; }
+    .results-list .result-row.ok { border-left-color: #198754; }
+    .results-list .result-row.bad { border-left-color: #dc3545; }
+    .result-row .rr-title { font-weight: 700; font-size: .9rem; }
+    .result-row .rr-detail { font-size: .8rem; color: #555; }
+
+    .verdict-banner { border-radius: 12px; padding: 18px; text-align: center; margin-bottom: 14px; font-weight: 700; font-size: 1.15rem; }
+    .verdict-banner.ok { background: #d1e7dd; color: #0f5132; }
+    .verdict-banner.bad { background: #fde8ea; color: #dc3545; }
+
+    .notes-box { width: 100%; padding: 12px; font-size: .95rem; border: 2px solid #dee2e6; border-radius: 10px; margin-top: 6px; resize: vertical; min-height: 70px; font-family: inherit; }
+
+    .success-screen { text-align: center; padding: 20px; }
+    .success-icon { font-size: 4.5rem; line-height: 1; }
+    .success-title { font-size: 1.3rem; font-weight: 700; margin-top: 10px; }
+
+    .history-item { font-size: .82rem; border-left: 3px solid #dee2e6; padding-left: 10px; margin-bottom: 10px; }
+    .history-item.ok { border-left-color: #198754; }
+    .history-item.bad { border-left-color: #dc3545; }
+
+    .form-check-label { font-size: .92rem; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <span>📐 MetalTrack QC</span>
+  <a href="baseplate.html">Configuración</a>
+</nav>
+
+<div class="wrap">
+
+  <div id="loading" class="text-center text-muted py-5">Cargando...</div>
+
+  <div id="app" style="display:none">
+
+    <!-- Check info -->
+    <div class="info-card">
+      <div class="breadcrumb" id="breadcrumb"></div>
+      <div class="comp-name" id="comp-name"></div>
+      <div class="comp-desc" id="comp-desc"></div>
+      <div id="target-chips" class="mt-2"></div>
+      <a id="pdf-link" href="#" target="_blank" class="btn btn-sm btn-outline-secondary mt-3">📄 Ver plano as-built</a>
+    </div>
+
+    <!-- Worker -->
+    <div class="action-card">
+      <label>Operario</label>
+      <select id="worker-name" class="name-input"></select>
+    </div>
+
+    <!-- Step 1: photo -->
+    <div class="action-card" id="photo-card">
+      <label>Foto del base plate</label>
+      <div class="alert alert-warning py-2 px-3" style="font-size:.85rem">
+        ⚠️ Antes de sacar la foto: trazá una línea horizontal sobre el plate con el nivel de burbuja (no hay un bolt de referencia real, el 0° sale de esa línea).
+      </div>
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" id="mirrored-toggle" checked>
+        <label class="form-check-label" for="mirrored-toggle">
+          Foto tomada por debajo del plato (estructura acostada) — invierte el sentido automáticamente
+        </label>
+      </div>
+      <input type="file" id="photo-input" accept="image/*" capture="environment" class="d-none">
+      <button class="btn-action btn-primary-action" onclick="document.getElementById('photo-input').click()">📷 Tomar / elegir foto</button>
+
+      <div id="marking-area" style="display:none" class="mt-3">
+        <div id="step-banner" class="step-banner"></div>
+        <div class="photo-wrap">
+          <img id="photo-img">
+          <canvas id="mark-canvas"></canvas>
+        </div>
+        <div class="d-flex gap-2 mt-2">
+          <button class="btn-action btn-outline-action" style="margin-top:0" onclick="undoPoint()">↩ Deshacer punto</button>
+          <button class="btn-action btn-outline-action" style="margin-top:0" onclick="resetPhoto()">🔄 Cambiar foto</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div id="results-card" class="action-card" style="display:none">
+      <div id="verdict-banner" class="verdict-banner"></div>
+      <div id="results-list" class="results-list"></div>
+
+      <label class="mt-2">Notas (opcional)</label>
+      <textarea id="notes" class="notes-box" placeholder="Observaciones..."></textarea>
+
+      <button class="btn-action btn-success-action" id="save-btn" onclick="saveValidation()">Guardar validación</button>
+    </div>
+
+    <!-- Success -->
+    <div id="success-card" class="action-card" style="display:none">
+      <div class="success-screen">
+        <div class="success-icon" id="success-icon"></div>
+        <div class="success-title" id="success-title"></div>
+        <button class="btn-action btn-primary-action" onclick="startNewValidation()">+ Nueva validación</button>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div class="action-card">
+      <label class="mb-2">Historial de validaciones</label>
+      <div id="history-list"><div class="text-muted small">Cargando...</div></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const checkId = params.get('check_id');
+let check = null;
+let img = null, canvas = null, ctx = null;
+let points = []; // { key, label, x, y }
+let steps = []; // sequence of {key, label, isTarget, target}
+
+function signedAngleDeg(P, A, B) {
+  const a1 = Math.atan2(-(A.y - P.y), A.x - P.x);
+  const a2 = Math.atan2(-(B.y - P.y), B.x - P.x);
+  let deg = (a2 - a1) * 180 / Math.PI;
+  return ((deg + 180) % 360 + 360) % 360 - 180;
+}
+function computeBoltResult(P, A, B, mirrored, targetDeg, targetSense) {
+  const raw = signedAngleDeg(P, A, B);
+  const top = mirrored ? -raw : raw;
+  const targetSigned = targetSense === 'CCW' ? targetDeg : -targetDeg;
+  const delta = Math.round(Math.abs(top - targetSigned) * 100) / 100;
+  return { measured_deg: Math.round(Math.abs(top) * 100) / 100, measured_sense: top >= 0 ? 'CCW' : 'CW', delta_deg: delta };
+}
+
+async function init() {
+  if (!checkId) { document.getElementById('loading').textContent = 'Falta check_id en el enlace.'; return; }
+  const [c, workers] = await Promise.all([
+    fetch(`/api/baseplate-checks/${checkId}`).then(r => r.json()),
+    fetch('/api/workers').then(r => r.json()),
+  ]);
+  if (c.error) { document.getElementById('loading').textContent = c.error; return; }
+  check = c;
+
+  document.getElementById('breadcrumb').textContent = check.structure_name || `Estructura #${check.structure_id}`;
+  document.getElementById('comp-name').textContent = `Columna ${check.column_label}`;
+  document.getElementById('comp-desc').textContent = [
+    check.elevation ? `Elevación: ${check.elevation}` : '',
+    check.reference_note ? check.reference_note : '',
+  ].filter(Boolean).join(' · ') || 'Tocá el centro, los dos extremos de la línea de nivel y cada bolt objetivo indicado.';
+  document.getElementById('target-chips').innerHTML = check.bolt_targets.map(t =>
+    `<span class="target-chip">${esc(t.label)}: ${t.angle_deg}° ${t.sense}</span>`).join('');
+  document.getElementById('pdf-link').href = `/api/baseplate-checks/${checkId}/pdf`;
+
+  const workerSel = document.getElementById('worker-name');
+  workerSel.innerHTML = workers.map(w => `<option value="${esc(w.name)}">${esc(w.name)}</option>`).join('');
+  const saved = localStorage.getItem('mt_worker_name');
+  if (saved && workers.some(w => w.name === saved)) workerSel.value = saved;
+
+  buildSteps();
+
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('app').style.display = '';
+
+  document.getElementById('photo-input').addEventListener('change', onPhotoSelected);
+  document.getElementById('mirrored-toggle').addEventListener('change', recompute);
+
+  loadHistory();
+}
+
+function buildSteps() {
+  steps = [
+    { key: '__center', label: 'el CENTRO del patrón de bolts' },
+    { key: '__ref1', label: 'el PRIMER extremo de la línea horizontal que trazaste con el nivel' },
+    { key: '__ref2', label: 'el SEGUNDO extremo de esa misma línea horizontal' },
+    ...check.bolt_targets.map(t => ({ key: t.label, label: `el bolt "${t.label}" (objetivo: ${t.angle_deg}° ${t.sense})`, target: t })),
+  ];
+}
+
+function onPhotoSelected(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  points = [];
+  document.getElementById('results-card').style.display = 'none';
+  const url = URL.createObjectURL(file);
+  img = document.getElementById('photo-img');
+  img.onload = () => {
+    canvas = document.getElementById('mark-canvas');
+    canvas.width = img.clientWidth;
+    canvas.height = img.clientHeight;
+    ctx = canvas.getContext('2d');
+    document.getElementById('marking-area').style.display = '';
+    canvas.onclick = onCanvasClick;
+    updateStepBanner();
+    drawPoints();
+  };
+  img.src = url;
+}
+
+function resetPhoto() {
+  points = [];
+  document.getElementById('marking-area').style.display = 'none';
+  document.getElementById('results-card').style.display = 'none';
+  document.getElementById('photo-input').value = '';
+}
+
+function currentStepIndex() { return points.length; }
+
+function updateStepBanner() {
+  const banner = document.getElementById('step-banner');
+  const idx = currentStepIndex();
+  if (idx >= steps.length) {
+    banner.textContent = '✓ Todos los puntos marcados';
+    banner.classList.add('done');
+  } else {
+    banner.textContent = `Paso ${idx + 1}/${steps.length}: tocá ${steps[idx].label}`;
+    banner.classList.remove('done');
+  }
+}
+
+function onCanvasClick(e) {
+  const idx = currentStepIndex();
+  if (idx >= steps.length) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const step = steps[idx];
+  points.push({ key: step.key, label: step.key.startsWith('__') ? step.key : step.label, x, y, target: step.target });
+  drawPoints();
+  updateStepBanner();
+  if (currentStepIndex() >= steps.length) recompute();
+}
+
+function undoPoint() {
+  points.pop();
+  document.getElementById('results-card').style.display = 'none';
+  drawPoints();
+  updateStepBanner();
+}
+
+function drawPoints() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const center = points.find(p => p.key === '__center');
+  const ref1 = points.find(p => p.key === '__ref1');
+  const ref2 = points.find(p => p.key === '__ref2');
+  points.forEach((p, i) => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 9, 0, Math.PI * 2);
+    ctx.fillStyle = p.key === '__center' ? '#0d6efd' : (p.key === '__ref1' || p.key === '__ref2') ? '#fd7e14' : '#198754';
+    ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = 'white'; ctx.stroke();
+    ctx.fillStyle = 'white'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(i + 1), p.x, p.y);
+  });
+  // the traced horizontal line (0deg reference)
+  if (ref1 && ref2) {
+    ctx.beginPath();
+    ctx.moveTo(ref1.x, ref1.y);
+    ctx.lineTo(ref2.x, ref2.y);
+    ctx.strokeStyle = '#fd7e14';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+  // center to each target bolt
+  if (center) {
+    points.filter(p => p.key !== '__center' && p.key !== '__ref1' && p.key !== '__ref2').forEach(p => {
+      ctx.beginPath();
+      ctx.moveTo(center.x, center.y);
+      ctx.lineTo(p.x, p.y);
+      ctx.strokeStyle = 'rgba(255,255,255,.85)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+  }
+}
+
+function recompute() {
+  if (currentStepIndex() < steps.length) return;
+  const center = points.find(p => p.key === '__center');
+  const ref1 = points.find(p => p.key === '__ref1');
+  const ref2 = points.find(p => p.key === '__ref2');
+  // translate the traced-line direction so it originates at the center (only the direction matters)
+  const virtualRef = { x: center.x + (ref2.x - ref1.x), y: center.y + (ref2.y - ref1.y) };
+  const mirrored = document.getElementById('mirrored-toggle').checked;
+  const targetPoints = points.filter(p => p.key !== '__center' && p.key !== '__ref1' && p.key !== '__ref2');
+
+  const results = targetPoints.map(p => {
+    const r = computeBoltResult(center, virtualRef, p, mirrored, p.target.angle_deg, p.target.sense);
+    const verdict = r.delta_deg <= check.tolerance_deg ? 'CONFORME' : 'NO_CONFORME';
+    return { label: p.key, target_deg: p.target.angle_deg, target_sense: p.target.sense, ...r, verdict };
+  });
+
+  const overall = results.every(r => r.verdict === 'CONFORME') ? 'CONFORME' : 'NO_CONFORME';
+
+  const banner = document.getElementById('verdict-banner');
+  banner.className = 'verdict-banner ' + (overall === 'CONFORME' ? 'ok' : 'bad');
+  banner.textContent = overall === 'CONFORME' ? '✓ CONFORME — dentro de tolerancia' : '✗ NO CONFORME — fuera de tolerancia';
+
+  document.getElementById('results-list').innerHTML = results.map(r => `
+    <div class="result-row ${r.verdict === 'CONFORME' ? 'ok' : 'bad'}">
+      <div class="rr-title">${esc(r.label)} — ${r.verdict === 'CONFORME' ? '✓ Conforme' : '✗ No conforme'}</div>
+      <div class="rr-detail">Medido: ${r.measured_deg}° ${r.measured_sense} · Objetivo: ${r.target_deg}° ${r.target_sense} · Diferencia: ${r.delta_deg}° (tolerancia ±${check.tolerance_deg}°)</div>
+    </div>
+  `).join('');
+
+  document.getElementById('results-card').style.display = '';
+}
+
+function compressImage(file, maxDim = 1600, quality = 0.82) {
+  return new Promise(resolve => {
+    const image = new Image();
+    const url = URL.createObjectURL(file);
+    image.onload = () => {
+      let { width, height } = image;
+      if (width > maxDim || height > maxDim) {
+        const scale = maxDim / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const c = document.createElement('canvas');
+      c.width = width; c.height = height;
+      c.getContext('2d').drawImage(image, 0, 0, width, height);
+      c.toBlob(blob => { URL.revokeObjectURL(url); resolve(blob); }, 'image/jpeg', quality);
+    };
+    image.src = url;
+  });
+}
+
+async function saveValidation() {
+  const workerName = document.getElementById('worker-name').value;
+  if (!workerName) { alert('Elegí un operario.'); return; }
+  localStorage.setItem('mt_worker_name', workerName);
+
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true; btn.textContent = 'Guardando...';
+
+  const center = points.find(p => p.key === '__center');
+  const ref1 = points.find(p => p.key === '__ref1');
+  const ref2 = points.find(p => p.key === '__ref2');
+  const targets = points.filter(p => p.key !== '__center' && p.key !== '__ref1' && p.key !== '__ref2').map(p => ({ label: p.key, x: p.x, y: p.y }));
+  const mirrored = document.getElementById('mirrored-toggle').checked;
+
+  const file = document.getElementById('photo-input').files[0];
+  const photoBlob = await compressImage(file);
+
+  const fd = new FormData();
+  fd.append('worker_name', workerName);
+  fd.append('notes', document.getElementById('notes').value.trim());
+  fd.append('mirrored', String(mirrored));
+  fd.append('center', JSON.stringify({ x: center.x, y: center.y }));
+  fd.append('reference_point_1', JSON.stringify({ x: ref1.x, y: ref1.y }));
+  fd.append('reference_point_2', JSON.stringify({ x: ref2.x, y: ref2.y }));
+  fd.append('targets', JSON.stringify(targets));
+  fd.append('photo', photoBlob, 'baseplate.jpg');
+
+  const res = await fetch(`/api/baseplate-checks/${checkId}/validations`, { method: 'POST', body: fd }).then(r => r.json());
+
+  btn.disabled = false; btn.textContent = 'Guardar validación';
+
+  if (res.error) { alert(res.error); return; }
+
+  document.getElementById('results-card').style.display = 'none';
+  document.getElementById('photo-card').style.display = 'none';
+  document.getElementById('success-icon').textContent = res.overall_verdict === 'CONFORME' ? '✅' : '⚠️';
+  document.getElementById('success-title').textContent = res.overall_verdict === 'CONFORME' ? 'Validación guardada — Conforme' : 'Validación guardada — No conforme';
+  document.getElementById('success-card').style.display = '';
+  loadHistory();
+}
+
+function startNewValidation() {
+  points = [];
+  document.getElementById('success-card').style.display = 'none';
+  document.getElementById('photo-card').style.display = '';
+  resetPhoto();
+  document.getElementById('notes').value = '';
+}
+
+async function loadHistory() {
+  const validations = await fetch(`/api/baseplate-checks/${checkId}/validations`).then(r => r.json());
+  const list = document.getElementById('history-list');
+  if (!validations.length) { list.innerHTML = '<div class="text-muted small">Sin validaciones todavía.</div>'; return; }
+  list.innerHTML = validations.map(v => `
+    <div class="history-item ${v.overall_verdict === 'CONFORME' ? 'ok' : 'bad'}">
+      <strong>${esc(v.worker_name)}</strong> · ${v.overall_verdict === 'CONFORME' ? '✓ Conforme' : '✗ No conforme'}
+      <div class="text-muted">${esc(v.created_at)}</div>
+    </div>
+  `).join('');
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+init();
+</script>
+</body>
+</html>

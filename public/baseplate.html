@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MetalTrack - Base Plates</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="style.css" rel="stylesheet">
+  <style>
+    .target-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+    .target-row input[type=text] { flex: 1.3; }
+    .target-row input[type=number] { flex: 1; }
+    .target-row select { flex: 1; }
+    .check-card { position: relative; }
+    .verdict-pill { font-weight: 700; font-size: .75rem; padding: 3px 10px; border-radius: 20px; }
+    .verdict-ok { background: #d1e7dd; color: #0f5132; }
+    .verdict-bad { background: #fde8ea; color: #dc3545; }
+    .verdict-none { background: #eee; color: #777; }
+    .bolt-target-chip { display: inline-block; background: #eef2f8; color: #1a2e4a; font-size: .72rem; padding: 2px 8px; border-radius: 10px; margin: 2px 3px 0 0; }
+  </style>
+  <script>if(window.innerWidth<768){document.write('<style>body{margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f0f4f8;font-family:sans-serif}.mobile-block{text-align:center;padding:40px 28px}.mobile-block .icon{font-size:4rem}.mobile-block h2{font-size:1.3rem;font-weight:700;margin:16px 0 8px;color:#1a2e4a}.mobile-block p{color:#666;font-size:.95rem;line-height:1.5}</style><div class="mobile-block"><div class="icon">🖥️</div><h2>Configuración solo en computador</h2><p>Para hacer una validación en el taller, abrí el enlace directo de "Nueva validación" de la pieza (te lo pasa la oficina), eso sí funciona desde el celular.</p></div>');throw new Error('mobile')}</script>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand" href="index.html">MetalTrack</a>
+    <div class="navbar-nav ms-auto flex-row gap-3">
+      <a class="nav-link" href="index.html">Dashboard</a>
+      <a class="nav-link" href="admin.html">Administrar</a>
+      <a class="nav-link" href="labels.html">Etiquetas</a>
+      <a class="nav-link" href="plate-labels.html">Plates</a>
+      <a class="nav-link active" href="baseplate.html">Base Plates</a>
+      <a class="nav-link" href="report.html">Informes</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid px-4 py-4">
+
+  <div class="row mb-3">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+      <div>
+        <h5 class="fw-bold mb-0">Validación de Rotación de Base Plates</h5>
+        <p class="text-muted small mb-0">Cargá el as-built de anchor bolts de cada columna y comparalo contra una foto del base plate fabricado.</p>
+      </div>
+      <button class="btn btn-primary" onclick="openNewCheck()">+ Nueva columna / check</button>
+    </div>
+  </div>
+
+  <!-- Filter -->
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <select id="filter-structure" class="form-select" onchange="loadChecks()">
+        <option value="">Todas las estructuras</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="checks-container" class="row g-3"></div>
+  <div id="empty-state" class="text-center py-5 d-none">
+    <div style="font-size:3rem">📐</div>
+    <h5 class="mt-3 text-muted">No hay checks todavía</h5>
+    <p class="text-muted">Creá uno con "+ Nueva columna / check".</p>
+  </div>
+
+</div>
+
+<!-- New/Edit Check Modal -->
+<div class="modal fade" id="checkModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="checkModalTitle">Nueva columna / check</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-id">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Estructura</label>
+            <select id="inp-structure" class="form-select"></select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold">Columna</label>
+            <select id="inp-column" class="form-select">
+              <option>Izquierda</option>
+              <option>Derecha</option>
+              <option>Única</option>
+              <option value="__custom">Otra...</option>
+            </select>
+            <input type="text" id="inp-column-custom" class="form-control mt-1 d-none" placeholder="Nombre de la columna">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-semibold">Elevación (TOP EL.)</label>
+            <input type="text" id="inp-elevation" class="form-control" placeholder="Ej: 46.38">
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Tolerancia (°)</label>
+            <input type="number" id="inp-tolerance" step="0.1" value="1" class="form-control">
+          </div>
+          <div class="col-md-8">
+            <label class="form-label fw-semibold">Plano as-built (PDF)</label>
+            <input type="file" id="inp-pdf" accept="application/pdf" class="form-control">
+            <div id="pdf-current" class="form-text"></div>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label fw-semibold">Notas para el operario (opcional)</label>
+            <textarea id="inp-refnote" class="form-control" rows="2" placeholder="Ej: para esta columna el 0° va hacia el lado de la otra columna (línea TRAFFIC STRUCT. FRONT) — trazá la línea de nivel apuntando en ese sentido"></textarea>
+            <div class="form-text">La app siempre le va a pedir al operario que trace una línea horizontal en el plate con un nivel de burbuja (no existe un bolt de referencia real) y toque sus dos extremos en la foto. Usá este campo solo para aclaraciones extra de esta columna en particular.</div>
+          </div>
+
+          <div class="col-12">
+            <hr>
+            <label class="form-label fw-semibold mb-1">Bolts objetivo (los del as-built con su ángulo desde la horizontal)</label>
+            <div class="text-muted small mb-2">Sentido: Horario (CW) = hacia abajo desde la referencia · Antihorario (CCW) = hacia arriba. Usá el ángulo tal cual viene impreso en el plano.</div>
+            <div id="targets-list"></div>
+            <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="addTargetRow()">+ Agregar bolt</button>
+          </div>
+        </div>
+        <div id="check-form-error" class="text-danger small mt-3" style="display:none"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" id="save-check-btn" onclick="saveCheck()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- History Modal -->
+<div class="modal fade" id="historyModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="historyModalTitle">Historial</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="historyModalBody"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+let structures = [];
+let checks = [];
+let checkModal, historyModal;
+
+async function init() {
+  structures = await fetch('/api/structures').then(r => r.json());
+  const filterSel = document.getElementById('filter-structure');
+  const inpSel = document.getElementById('inp-structure');
+  const byProject = {};
+  structures.forEach(s => { (byProject[s.project_name||'Sin proyecto'] ??= []).push(s); });
+  let filterHtml = '<option value="">Todas las estructuras</option>';
+  let inpHtml = '';
+  Object.entries(byProject).forEach(([proj, structs]) => {
+    filterHtml += `<optgroup label="${esc(proj)}">` + structs.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('') + '</optgroup>';
+    inpHtml += `<optgroup label="${esc(proj)}">` + structs.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('') + '</optgroup>';
+  });
+  filterSel.innerHTML = filterHtml;
+  inpSel.innerHTML = inpHtml || '<option value="">(no hay estructuras — creá una en Administrar)</option>';
+
+  checkModal = new bootstrap.Modal(document.getElementById('checkModal'));
+  historyModal = new bootstrap.Modal(document.getElementById('historyModal'));
+
+  document.getElementById('inp-column').addEventListener('change', e => {
+    document.getElementById('inp-column-custom').classList.toggle('d-none', e.target.value !== '__custom');
+  });
+
+  await loadChecks();
+}
+
+async function loadChecks() {
+  const sid = document.getElementById('filter-structure').value;
+  const url = sid ? `/api/baseplate-checks?structure_id=${sid}` : '/api/baseplate-checks';
+  checks = await fetch(url).then(r => r.json());
+  renderChecks();
+}
+
+function structureName(id) {
+  const s = structures.find(s => s.id === id);
+  return s ? `${s.project_name ? s.project_name + ' / ' : ''}${s.name}` : `Estructura #${id}`;
+}
+
+function verdictPill(v, count) {
+  if (!count) return '<span class="verdict-pill verdict-none">Sin validar</span>';
+  if (v === 'CONFORME') return '<span class="verdict-pill verdict-ok">✓ Conforme</span>';
+  return '<span class="verdict-pill verdict-bad">✗ No conforme</span>';
+}
+
+function renderChecks() {
+  const container = document.getElementById('checks-container');
+  const empty = document.getElementById('empty-state');
+  if (!checks.length) { container.innerHTML = ''; empty.classList.remove('d-none'); return; }
+  empty.classList.add('d-none');
+
+  container.innerHTML = checks.map(c => {
+    const validateUrl = `baseplate-validate.html?check_id=${c.id}`;
+    const targetsHtml = c.bolt_targets.map(t => `<span class="bolt-target-chip">${esc(t.label)}: ${t.angle_deg}° ${t.sense}</span>`).join('');
+    return `
+    <div class="col-12 col-md-6 col-xl-4">
+      <div class="card h-100 check-card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start mb-1">
+            <div>
+              <div class="fw-bold">${esc(structureName(c.structure_id))}</div>
+              <div class="text-muted small">Columna: ${esc(c.column_label)}${c.elevation ? ' · EL. ' + esc(c.elevation) : ''}</div>
+            </div>
+            ${verdictPill(c.last_verdict, c.validation_count)}
+          </div>
+          <div class="mt-2">${targetsHtml}</div>
+          <div class="text-muted small mt-2">Tolerancia: ±${c.tolerance_deg}° · ${c.validation_count} validación(es)</div>
+        </div>
+        <div class="card-footer d-flex flex-wrap gap-2">
+          <a href="${validateUrl}" target="_blank" class="btn btn-sm btn-success flex-fill">📷 Nueva validación</a>
+          <button class="btn btn-sm btn-outline-secondary" onclick="showHistory(${c.id})">Historial</button>
+          <button class="btn btn-sm btn-outline-primary" onclick="editCheck(${c.id})">Editar</button>
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteCheck(${c.id})">Eliminar</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function addTargetRow(label='', angle='', sense='CW') {
+  const list = document.getElementById('targets-list');
+  const row = document.createElement('div');
+  row.className = 'target-row';
+  row.innerHTML = `
+    <input type="text" class="form-control t-label" placeholder="Ej: Superior" value="${esc(label)}">
+    <input type="number" step="0.0001" class="form-control t-angle" placeholder="Ángulo °" value="${angle}">
+    <select class="form-select t-sense">
+      <option value="CW" ${sense==='CW'?'selected':''}>Horario (CW)</option>
+      <option value="CCW" ${sense==='CCW'?'selected':''}>Antihorario (CCW)</option>
+    </select>
+    <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.parentElement.remove()">&times;</button>
+  `;
+  list.appendChild(row);
+}
+
+function openNewCheck() {
+  document.getElementById('edit-id').value = '';
+  document.getElementById('checkModalTitle').textContent = 'Nueva columna / check';
+  document.getElementById('inp-structure').value = structures[0]?.id || '';
+  document.getElementById('inp-column').value = 'Izquierda';
+  document.getElementById('inp-column-custom').classList.add('d-none');
+  document.getElementById('inp-elevation').value = '';
+  document.getElementById('inp-tolerance').value = '1';
+  document.getElementById('inp-pdf').value = '';
+  document.getElementById('pdf-current').textContent = '';
+  document.getElementById('inp-refnote').value = '';
+  document.getElementById('targets-list').innerHTML = '';
+  document.getElementById('check-form-error').style.display = 'none';
+  addTargetRow('Superior', '', 'CCW');
+  addTargetRow('Inferior', '', 'CW');
+  checkModal.show();
+}
+
+async function editCheck(id) {
+  const c = await fetch(`/api/baseplate-checks/${id}`).then(r => r.json());
+  document.getElementById('edit-id').value = id;
+  document.getElementById('checkModalTitle').textContent = 'Editar columna / check';
+  document.getElementById('inp-structure').value = c.structure_id;
+  const knownCols = ['Izquierda','Derecha','Única'];
+  if (knownCols.includes(c.column_label)) {
+    document.getElementById('inp-column').value = c.column_label;
+    document.getElementById('inp-column-custom').classList.add('d-none');
+  } else {
+    document.getElementById('inp-column').value = '__custom';
+    document.getElementById('inp-column-custom').value = c.column_label;
+    document.getElementById('inp-column-custom').classList.remove('d-none');
+  }
+  document.getElementById('inp-elevation').value = c.elevation || '';
+  document.getElementById('inp-tolerance').value = c.tolerance_deg;
+  document.getElementById('inp-pdf').value = '';
+  document.getElementById('pdf-current').textContent = c.pdf_filename ? `Plano actual: ${c.pdf_filename} (subí uno nuevo para reemplazarlo)` : '';
+  document.getElementById('inp-refnote').value = c.reference_note || '';
+  document.getElementById('targets-list').innerHTML = '';
+  (c.bolt_targets || []).forEach(t => addTargetRow(t.label, t.angle_deg, t.sense));
+  document.getElementById('check-form-error').style.display = 'none';
+  checkModal.show();
+}
+
+function collectTargets() {
+  return Array.from(document.querySelectorAll('#targets-list .target-row')).map(row => ({
+    label: row.querySelector('.t-label').value.trim(),
+    angle_deg: parseFloat(row.querySelector('.t-angle').value),
+    sense: row.querySelector('.t-sense').value,
+  })).filter(t => t.label && !isNaN(t.angle_deg));
+}
+
+async function saveCheck() {
+  const errEl = document.getElementById('check-form-error');
+  errEl.style.display = 'none';
+  const id = document.getElementById('edit-id').value;
+  const structure_id = document.getElementById('inp-structure').value;
+  const colSel = document.getElementById('inp-column').value;
+  const column_label = colSel === '__custom' ? document.getElementById('inp-column-custom').value.trim() : colSel;
+  const targets = collectTargets();
+
+  if (!structure_id) { errEl.textContent = 'Elegí una estructura.'; errEl.style.display = ''; return; }
+  if (!column_label) { errEl.textContent = 'Falta el nombre de la columna.'; errEl.style.display = ''; return; }
+  if (!targets.length) { errEl.textContent = 'Agregá al menos un bolt objetivo con su ángulo.'; errEl.style.display = ''; return; }
+
+  const fd = new FormData();
+  fd.append('structure_id', structure_id);
+  fd.append('column_label', column_label);
+  fd.append('elevation', document.getElementById('inp-elevation').value.trim());
+  fd.append('tolerance_deg', document.getElementById('inp-tolerance').value);
+  fd.append('reference_note', document.getElementById('inp-refnote').value.trim());
+  fd.append('bolt_targets', JSON.stringify(targets));
+  const pdfFile = document.getElementById('inp-pdf').files[0];
+  if (pdfFile) fd.append('pdf', pdfFile);
+
+  const btn = document.getElementById('save-check-btn');
+  btn.disabled = true; btn.textContent = 'Guardando...';
+
+  const url = id ? `/api/baseplate-checks/${id}` : '/api/baseplate-checks';
+  const method = id ? 'PUT' : 'POST';
+  const res = await fetch(url, { method, body: fd }).then(r => r.json());
+
+  btn.disabled = false; btn.textContent = 'Guardar';
+
+  if (res.error) { errEl.textContent = res.error; errEl.style.display = ''; return; }
+  checkModal.hide();
+  await loadChecks();
+}
+
+async function deleteCheck(id) {
+  if (!confirm('¿Eliminar este check y todo su historial de validaciones? Esta acción no se puede deshacer.')) return;
+  await fetch(`/api/baseplate-checks/${id}`, { method: 'DELETE' });
+  await loadChecks();
+}
+
+async function showHistory(id) {
+  const c = checks.find(c => c.id === id);
+  const validations = await fetch(`/api/baseplate-checks/${id}/validations`).then(r => r.json());
+  document.getElementById('historyModalTitle').textContent = `Historial — ${structureName(c.structure_id)} (${c.column_label})`;
+
+  const pdfLink = `<a href="/api/baseplate-checks/${id}/pdf" target="_blank" class="btn btn-sm btn-outline-secondary mb-3">📄 Ver plano as-built</a>`;
+
+  if (!validations.length) {
+    document.getElementById('historyModalBody').innerHTML = pdfLink + '<p class="text-muted">Todavía no hay validaciones para este check.</p>';
+  } else {
+    const rows = validations.map(v => {
+      const resultsHtml = v.results.map(r => `<div class="small">${esc(r.label)}: medido ${r.measured_deg}° ${r.measured_sense} vs objetivo ${r.target_deg}° ${r.target_sense} — Δ${r.delta_deg}° <strong class="${r.verdict==='CONFORME'?'text-success':'text-danger'}">${r.verdict==='CONFORME'?'Conforme':'No conforme'}</strong></div>`).join('');
+      return `
+        <div class="d-flex gap-3 border-bottom pb-3 mb-3">
+          <img src="/api/baseplate-validations/${v.id}/photo" style="width:100px;height:100px;object-fit:cover;border-radius:8px" onerror="this.style.display='none'">
+          <div class="flex-fill">
+            <div class="d-flex justify-content-between">
+              <div><strong>${esc(v.worker_name)}</strong> · <span class="text-muted small">${esc(v.created_at)}</span></div>
+              ${verdictPill(v.overall_verdict, 1)}
+            </div>
+            ${resultsHtml}
+            ${v.notes ? `<div class="text-muted small mt-1">Nota: ${esc(v.notes)}</div>` : ''}
+            <button class="btn btn-sm btn-link text-danger p-0 mt-1" onclick="deleteValidation(${v.id}, ${id})">Eliminar</button>
+          </div>
+        </div>`;
+    }).join('');
+    document.getElementById('historyModalBody').innerHTML = pdfLink + rows;
+  }
+  historyModal.show();
+}
+
+async function deleteValidation(vid, checkId) {
+  if (!confirm('¿Eliminar esta validación?')) return;
+  await fetch(`/api/baseplate-validations/${vid}`, { method: 'DELETE' });
+  await loadChecks();
+  showHistory(checkId);
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+init();
+</script>
+</body>
+</html>
