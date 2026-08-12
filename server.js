@@ -59,6 +59,7 @@ const basePlateCheckSchema = new mongoose.Schema({
   elevation: String,
   tolerance_deg: Number,
   reference_note: String,
+  hole_count: Number,
   bolt_targets: [{ label: String, angle_deg: Number, sense: String }],
   pdf_data: Buffer,
   pdf_mimetype: String,
@@ -760,7 +761,7 @@ app.get('/api/baseplate-checks/:id/pdf', async (req, res) => {
 
 app.post('/api/baseplate-checks', upload.single('pdf'), async (req, res) => {
   try {
-    const { structure_id, column_label, elevation, tolerance_deg, reference_note } = req.body;
+    const { structure_id, column_label, elevation, tolerance_deg, reference_note, hole_count } = req.body;
     let bolt_targets = [];
     try { bolt_targets = JSON.parse(req.body.bolt_targets || '[]'); } catch {}
     if (!structure_id || !column_label?.trim()) return res.status(400).json({ error: 'Estructura y columna son requeridas' });
@@ -773,6 +774,7 @@ app.post('/api/baseplate-checks', upload.single('pdf'), async (req, res) => {
       elevation: elevation?.trim() || '',
       tolerance_deg: parseFloat(tolerance_deg) || 1,
       reference_note: reference_note?.trim() || '',
+      hole_count: hole_count ? parseInt(hole_count) : null,
       bolt_targets: bolt_targets.map(t => ({ label: String(t.label).trim(), angle_deg: parseFloat(t.angle_deg), sense: t.sense === 'CCW' ? 'CCW' : 'CW' })),
       created_at: now(),
     };
@@ -786,7 +788,7 @@ app.post('/api/baseplate-checks', upload.single('pdf'), async (req, res) => {
 app.put('/api/baseplate-checks/:id', upload.single('pdf'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { column_label, elevation, tolerance_deg, reference_note } = req.body;
+    const { column_label, elevation, tolerance_deg, reference_note, hole_count } = req.body;
     let bolt_targets;
     if (req.body.bolt_targets) { try { bolt_targets = JSON.parse(req.body.bolt_targets); } catch {} }
     const update = {};
@@ -794,6 +796,7 @@ app.put('/api/baseplate-checks/:id', upload.single('pdf'), async (req, res) => {
     if (elevation !== undefined) update.elevation = elevation.trim();
     if (tolerance_deg !== undefined) update.tolerance_deg = parseFloat(tolerance_deg);
     if (reference_note !== undefined) update.reference_note = reference_note.trim();
+    if (hole_count !== undefined) update.hole_count = hole_count ? parseInt(hole_count) : null;
     if (Array.isArray(bolt_targets)) update.bolt_targets = bolt_targets.map(t => ({ label: String(t.label).trim(), angle_deg: parseFloat(t.angle_deg), sense: t.sense === 'CCW' ? 'CCW' : 'CW' }));
     if (req.file) { update.pdf_data = req.file.buffer; update.pdf_mimetype = req.file.mimetype; update.pdf_filename = req.file.originalname; }
     await BasePlateCheck.updateOne({ id }, update);

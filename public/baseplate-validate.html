@@ -36,9 +36,9 @@
     .step-banner { border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; font-weight: 700; text-align: center; background: #fff3e0; color: #a35a00; }
     .step-banner.done { background: #d1e7dd; color: #0f5132; }
 
-    .photo-wrap { position: relative; width: 100%; border-radius: 12px; overflow: hidden; background: #000; touch-action: manipulation; }
+    .photo-wrap { position: relative; width: 100%; border-radius: 12px; overflow: hidden; background: #000; }
     .photo-wrap img { width: 100%; display: block; }
-    .photo-wrap canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    .photo-wrap canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; touch-action: none; }
 
     .results-list .result-row { border-left: 4px solid #dee2e6; padding: 8px 10px; margin-bottom: 8px; border-radius: 6px; background: #f8f9fa; }
     .results-list .result-row.ok { border-left-color: #198754; }
@@ -153,6 +153,7 @@ const params = new URLSearchParams(location.search);
 const checkId = params.get('check_id');
 let check = null;
 let img = null, canvas = null, ctx = null;
+let dragIndex = -1;
 let points = []; // { key, label, x, y }
 let steps = []; // sequence of {key, label, isTarget, target}
 
@@ -205,13 +206,18 @@ async function init() {
   loadHistory();
 }
 
+const NON_TARGET_KEYS = ['__center', '__ref1', '__ref2', '__radius'];
+
 function buildSteps() {
   steps = [
     { key: '__center', label: 'el CENTRO del patrón de bolts' },
     { key: '__ref1', label: 'el PRIMER extremo de la línea horizontal que trazaste con el nivel' },
     { key: '__ref2', label: 'el SEGUNDO extremo de esa misma línea horizontal' },
-    ...check.bolt_targets.map(t => ({ key: t.label, label: `el bolt "${t.label}" (objetivo: ${t.angle_deg}° ${t.sense})`, target: t })),
   ];
+  if (check.hole_count && check.hole_count >= 2) {
+    steps.push({ key: '__radius', label: `cualquier hueco visible del patrón (para dibujar la guía de los ${check.hole_count} huecos)` });
+  }
+  steps.push(...check.bolt_targets.map(t => ({ key: t.label, label: `el bolt "${t.label}" (objetivo: ${t.angle_deg}° ${t.sense})`, target: t })));
 }
 
 function onPhotoSelected(e) {
@@ -227,7 +233,10 @@ function onPhotoSelected(e) {
     canvas.height = img.clientHeight;
     ctx = canvas.getContext('2d');
     document.getElementById('marking-area').style.display = '';
-    canvas.onclick = onCanvasClick;
+    canvas.onpointerdown = onPointerDown;
+    canvas.onpointermove = onPointerMove;
+    canvas.onpointerup = stopDragging;
+    canvas.onpointercancel = stopDragging;
     updateStepBanner();
     drawPoints();
   };
@@ -236,6 +245,7 @@ function onPhotoSelected(e) {
 
 function resetPhoto() {
   points = [];
+  dragIndex = -1;
   document.getElementById('marking-area').style.display = 'none';
   document.getElementById('results-card').style.display = 'none';
   document.getElementById('photo-input').value = '';
@@ -247,7 +257,7 @@ function updateStepBanner() {
   const banner = document.getElementById('step-banner');
   const idx = currentStepIndex();
   if (idx >= steps.length) {
-    banner.textContent = '✓ Todos los puntos marcados';
+    banner.textContent = '✓ Todos los puntos marcados — arrastrá cualquiera para corregirlo';
     banner.classList.add('done');
   } else {
     banner.textContent = `Paso ${idx + 1}/${steps.length}: tocá ${steps[idx].label}`;
@@ -255,12 +265,48 @@ function updateStepBanner() {
   }
 }
 
-function onCanvasClick(e) {
+function localCoords(e) {
+  const rect = canvas.getBoundingClientRect();
+  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
+
+function findNearbyPointIndex(x, y, radius = 18) {
+  for (let i = points.length - 1; i >= 0; i--) {
+    if (Math.hypot(points[i].x - x, points[i].y - y) <= radius) return i;
+  }
+  return -1;
+}
+
+function onPointerDown(e) {
+  const { x, y } = localCoords(e);
+  // While still placing the initial sequence, always place the next point —
+  // two real bolts can be just a few degrees (and pixels) apart, so treating
+  // a tap near an earlier point as "drag that one instead" would silently
+  // swallow the new point. Dragging only kicks in once nothing is left to place.
+  if (currentStepIndex() < steps.length) { placeNextPoint(x, y); return; }
+  const idx = findNearbyPointIndex(x, y);
+  if (idx >= 0) {
+    dragIndex = idx;
+    canvas.setPointerCapture(e.pointerId);
+  }
+}
+
+function onPointerMove(e) {
+  if (dragIndex < 0) return;
+  const { x, y } = localCoords(e);
+  points[dragIndex].x = x;
+  points[dragIndex].y = y;
+  drawPoints();
+  if (currentStepIndex() >= steps.length) recompute();
+}
+
+function stopDragging() {
+  dragIndex = -1;
+}
+
+function placeNextPoint(x, y) {
   const idx = currentStepIndex();
   if (idx >= steps.length) return;
-  const rect = canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
   const step = steps[idx];
   points.push({ key: step.key, label: step.key.startsWith('__') ? step.key : step.label, x, y, target: step.target });
   drawPoints();
@@ -275,20 +321,55 @@ function undoPoint() {
   updateStepBanner();
 }
 
+// Predicted positions of all N holes, evenly spaced from the traced 0deg line,
+// at the radius given by the calibration tap — a pure-geometry guide (no image
+// analysis) so the operator can visually confirm center/reference placement
+// against the real holes before tapping the actual target bolts.
+function computeRing() {
+  const center = points.find(p => p.key === '__center');
+  const ref1 = points.find(p => p.key === '__ref1');
+  const ref2 = points.find(p => p.key === '__ref2');
+  const radiusPt = points.find(p => p.key === '__radius');
+  if (!center || !ref1 || !ref2 || !radiusPt || !check.hole_count || check.hole_count < 2) return null;
+  const refFlipped = { x: ref2.x - ref1.x, y: -(ref2.y - ref1.y) };
+  const refLen = Math.hypot(refFlipped.x, refFlipped.y);
+  if (refLen < 1e-6) return null;
+  const baseAngle = Math.atan2(refFlipped.y, refFlipped.x);
+  const radius = Math.hypot(radiusPt.x - center.x, radiusPt.y - center.y);
+  if (radius < 1) return null;
+  const n = check.hole_count;
+  const ring = [];
+  for (let i = 0; i < n; i++) {
+    const theta = baseAngle + i * (2 * Math.PI / n);
+    ring.push({ x: center.x + radius * Math.cos(theta), y: center.y - radius * Math.sin(theta) });
+  }
+  return ring;
+}
+
+function pointColor(key) {
+  if (key === '__center') return '#0d6efd';
+  if (key === '__ref1' || key === '__ref2') return '#fd7e14';
+  if (key === '__radius') return '#e8a020';
+  return '#198754';
+}
+
 function drawPoints() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const center = points.find(p => p.key === '__center');
   const ref1 = points.find(p => p.key === '__ref1');
   const ref2 = points.find(p => p.key === '__ref2');
-  points.forEach((p, i) => {
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 9, 0, Math.PI * 2);
-    ctx.fillStyle = p.key === '__center' ? '#0d6efd' : (p.key === '__ref1' || p.key === '__ref2') ? '#fd7e14' : '#198754';
-    ctx.fill();
-    ctx.lineWidth = 2; ctx.strokeStyle = 'white'; ctx.stroke();
-    ctx.fillStyle = 'white'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(String(i + 1), p.x, p.y);
-  });
+
+  // guide ring: where the other holes should be if center/reference are correct
+  const ring = computeRing();
+  if (ring) {
+    ctx.save();
+    ctx.setLineDash([4, 3]);
+    ctx.strokeStyle = 'rgba(255, 215, 0, .95)';
+    ctx.lineWidth = 2;
+    ring.forEach(pt => { ctx.beginPath(); ctx.arc(pt.x, pt.y, 12, 0, Math.PI * 2); ctx.stroke(); });
+    ctx.restore();
+  }
+
   // the traced horizontal line (0deg reference)
   if (ref1 && ref2) {
     ctx.beginPath();
@@ -298,7 +379,7 @@ function drawPoints() {
     ctx.lineWidth = 2;
     ctx.stroke();
   }
-  // center to each target bolt
+  // center to each target bolt (and the radius-calibration point, if any)
   if (center) {
     points.filter(p => p.key !== '__center' && p.key !== '__ref1' && p.key !== '__ref2').forEach(p => {
       ctx.beginPath();
@@ -309,6 +390,15 @@ function drawPoints() {
       ctx.stroke();
     });
   }
+  points.forEach((p, i) => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 9, 0, Math.PI * 2);
+    ctx.fillStyle = pointColor(p.key);
+    ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = 'white'; ctx.stroke();
+    ctx.fillStyle = 'white'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(i + 1), p.x, p.y);
+  });
 }
 
 function recompute() {
@@ -319,7 +409,7 @@ function recompute() {
   // translate the traced-line direction so it originates at the center (only the direction matters)
   const virtualRef = { x: center.x + (ref2.x - ref1.x), y: center.y + (ref2.y - ref1.y) };
   const mirrored = document.getElementById('mirrored-toggle').checked;
-  const targetPoints = points.filter(p => p.key !== '__center' && p.key !== '__ref1' && p.key !== '__ref2');
+  const targetPoints = points.filter(p => !NON_TARGET_KEYS.includes(p.key));
 
   const results = targetPoints.map(p => {
     const r = computeBoltResult(center, virtualRef, p, mirrored, p.target.angle_deg, p.target.sense);
@@ -374,7 +464,7 @@ async function saveValidation() {
   const center = points.find(p => p.key === '__center');
   const ref1 = points.find(p => p.key === '__ref1');
   const ref2 = points.find(p => p.key === '__ref2');
-  const targets = points.filter(p => p.key !== '__center' && p.key !== '__ref1' && p.key !== '__ref2').map(p => ({ label: p.key, x: p.x, y: p.y }));
+  const targets = points.filter(p => !NON_TARGET_KEYS.includes(p.key)).map(p => ({ label: p.key, x: p.x, y: p.y }));
   const mirrored = document.getElementById('mirrored-toggle').checked;
 
   const file = document.getElementById('photo-input').files[0];

@@ -100,7 +100,12 @@
             <label class="form-label fw-semibold">Tolerancia (°)</label>
             <input type="number" id="inp-tolerance" step="0.1" value="1" class="form-control">
           </div>
-          <div class="col-md-8">
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Cantidad de huecos</label>
+            <input type="number" id="inp-holecount" step="1" min="2" class="form-control" placeholder="Ej: 8">
+            <div class="form-text">Para dibujar el círculo guía en el celular (opcional pero recomendado).</div>
+          </div>
+          <div class="col-md-4">
             <label class="form-label fw-semibold">Plano as-built (PDF)</label>
             <input type="file" id="inp-pdf" accept="application/pdf" class="form-control">
             <div id="pdf-current" class="form-text"></div>
@@ -250,6 +255,7 @@ function openNewCheck() {
   document.getElementById('inp-column-custom').classList.add('d-none');
   document.getElementById('inp-elevation').value = '';
   document.getElementById('inp-tolerance').value = '1';
+  document.getElementById('inp-holecount').value = '';
   document.getElementById('inp-pdf').value = '';
   document.getElementById('pdf-current').textContent = '';
   document.getElementById('inp-refnote').value = '';
@@ -276,6 +282,7 @@ async function editCheck(id) {
   }
   document.getElementById('inp-elevation').value = c.elevation || '';
   document.getElementById('inp-tolerance').value = c.tolerance_deg;
+  document.getElementById('inp-holecount').value = c.hole_count || '';
   document.getElementById('inp-pdf').value = '';
   document.getElementById('pdf-current').textContent = c.pdf_filename ? `Plano actual: ${c.pdf_filename} (subí uno nuevo para reemplazarlo)` : '';
   document.getElementById('inp-refnote').value = c.reference_note || '';
@@ -311,6 +318,7 @@ async function saveCheck() {
   fd.append('column_label', column_label);
   fd.append('elevation', document.getElementById('inp-elevation').value.trim());
   fd.append('tolerance_deg', document.getElementById('inp-tolerance').value);
+  fd.append('hole_count', document.getElementById('inp-holecount').value);
   fd.append('reference_note', document.getElementById('inp-refnote').value.trim());
   fd.append('bolt_targets', JSON.stringify(targets));
   const pdfFile = document.getElementById('inp-pdf').files[0];
